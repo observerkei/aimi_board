@@ -1,10 +1,8 @@
 #include <assert.h>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include <sys/types.h>
 
 #include "font_bitmap.h"
@@ -170,8 +168,10 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
     return NULL;
 }
 
-#define __XTEST__
 #ifdef __XTEST__
+
+#include <iostream>
+#include <string>
 
 void display_ascii_word(word_bitmap_t* p_word)
 {

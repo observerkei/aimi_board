@@ -10,13 +10,16 @@ extern "C" {
 // 功能: 读取GB2312点阵字体资源文件, 转化为点阵字结构
 // example: font_bitmap.c::main()
 
-struct font_data_t;
-#define BIT_SIZE (8)
-#define ZH_WORD_SIZE (32)
-#define ASCII_WORD_SIZE (16)
-#define FONT_HEIGHT_WORD_SIZE (16)
+#include "framebuffer.h"
+
 #define GB2312_ZH_BIT (sizeof(uint16_t))
 #define GB2312_ASCII_BIT (sizeof(uint8_t))
+
+struct font_data_t;
+#define BIT_SIZE (8)
+#define ZH_WORD_SIZE (GB2312_ZH_BIT*BIT_SIZE) // 16 * FRAMEBUFFER==2 
+#define ASCII_WORD_SIZE (GB2312_ASCII_BIT*BIT_SIZE)
+#define FONT_HEIGHT_WORD_SIZE (16)
 
 typedef union {
     uint8_t zh[ZH_WORD_SIZE]; // width-16bit, height-16bit

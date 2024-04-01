@@ -62,7 +62,7 @@ framebuffer_t* framebuffer_init()
     LOG_DBG("Width: %ld, Heigh: %ld\n", fb_info->width, fb_info->height);
 
     fb_info->screen = mmap(NULL, fb_info->screen_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb_info->dev_fb, 0);
-    if (NULL == fb_info->screen) {
+    if (MAP_FAILED == fb_info->screen) {
         perror("fail to get mmap");
         framebuffer_exit(fb_info);
         return NULL;

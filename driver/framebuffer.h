@@ -11,8 +11,8 @@ extern "C" {
 typedef uint16_t framebuffer_color_t;
 #define COLOR_SIZE (sizeof(framebuffer_color_t))
 
-#define COLOR_BLACK (0x00U)
-#define COLOR_WHITE (0xffU)
+#define COLOR_BLACK (0x0000U)
+#define COLOR_WHITE (0xffffU)
 #define COLOR_GREY (0xe73cU)
 
 typedef struct framebuffer_t {
