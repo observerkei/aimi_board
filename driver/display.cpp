@@ -1,8 +1,8 @@
-#include <string.h>
-#include <stdio.h>
 #include <assert.h>
-#include <stdlib.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "display.h"
 #include "font_bitmap.h"
@@ -17,8 +17,8 @@
  *    |   |
  * height |
  *    |   |
- *    ——  v
- *       y++
+ *    v   v
+ *        y++
  *
  * */
 
@@ -30,16 +30,28 @@
 #define ROLE_ASSISTANT_HEIGHT_START (0)
 #define ROLE_USER_HEIGHT_START (11 * FONT_HEIGHT_WORD_SIZE) // 共15行，分配 11 行给 AI
 
-
 typedef struct display_t {
     size_t cache_size;
-    framebuffer_color_t font_color;
     font_bitmap_t* font;
     framebuffer_t* fb_info;
     uint8_t* cache;
 } display_t;
 
 static display_t g_display = { 0 };
+
+static inline size_t view_add_x(view_t* v, size_t add)
+{
+    if (v->now_x + add > v->start_x + v->width)
+        return 0;
+    return v->now_x + add;
+}
+
+static inline size_t view_add_y(view_t* v, size_t add)
+{
+    if (v->now_y + add > v->start_y + v->height)
+        return 0;
+    return v->now_y + add;
+}
 
 static inline size_t display_cul_cache_offset(display_t* d, size_t x, size_t y)
 {
@@ -57,106 +69,109 @@ inline void display_fflush(display_t* d)
     memcpy(g_display.fb_info->screen, d->cache, g_display.fb_info->screen_size);
 }
 
-static inline int display_cul_next_line(display_t* d, size_t* x, size_t* y, gb2312_word_type_t type)
+static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size_t* y, gb2312_word_type_t type)
 {
     size_t next_x = *x;
     size_t next_y = *y;
     size_t space = (type == GB2312_CHINESE ? ZH_WORD_SIZE : ASCII_WORD_SIZE);
 
-    if (next_x >= d->fb_info->width || next_x + space >= d->fb_info->width) {
+    size_t real_width = v->start_x + v->width > d->fb_info->width
+        ? d->fb_info->width - v->start_x
+        : v->width;
+
+    if (next_x >= real_width || next_x + space >= real_width) {
         next_y += FONT_HEIGHT_WORD_SIZE;
-        next_x = 0;// 右侧剩余空间不够了
-        display_cul_next_line(d, &next_x, &next_y, type);
+        next_x = v->start_x; // 右侧剩余空间不够了
+        display_cul_next_line(d, v, &next_x, &next_y, type);
     }
 
-    if (next_y >= d->fb_info->height) {
-        next_y = 0;
-        display_cul_next_line(d, &next_x, &next_y, type);
+    size_t real_height = v->start_y + v->height > d->fb_info->height
+        ? d->fb_info->height - v->start_y
+        : v->height;
+
+    if (next_y >= real_height) {
+        next_y = v->start_y;
+        display_cul_next_line(d, v, &next_x, &next_y, type);
     }
 
-    if (next_x > d->fb_info->width || next_y > d->fb_info->height) {
-        LOG_ERR("cul next x(%zu) or y(%zu) to nx(%zu) ny(%zu) fail. ",
-            *x, *y, next_x, next_y);
-        return -1;
-    }
     *x = next_x;
     *y = next_y;
     return 0;
 }
 
-static void display_draw_space_word(display_t* d, size_t* x, size_t* y)
+static void display_draw_space_word(display_t* d, view_t* v)
 {
-    size_t next_x = *x + ASCII_WORD_SIZE;
-    size_t next_y = *y;
-    int ret = display_cul_next_line(d, &next_x, &next_y, GB2312_ASCII);
+    size_t next_x = view_add_x(v, ASCII_WORD_SIZE);
+    size_t next_y = v->now_y;
+    int ret = display_cul_next_line(d, v, &next_x, &next_y, GB2312_ASCII);
     if (ret < 0) {
         LOG_DBG("display over flow! cx(%zu) y(%zu)\n", next_x, next_y);
         return;
     }
-    *x = next_x;
-    *y = next_y;
+    v->now_x = next_x;
+    v->now_y = next_y;
 }
 
-static inline void display_draw_tabs_word(display_t* d, size_t* x, size_t* y)
+static inline void display_draw_tabs_word(display_t* d, view_t* v)
 {
     for (size_t i = 0; i < DISPLAY_TABS_OF_SPACE; ++i)
-        display_draw_space_word(d, x, y);
+        display_draw_space_word(d, v);
 }
 
-static inline void display_draw_endl_word(display_t* d, size_t* x, size_t* y)
+static inline void display_draw_endl_word(display_t* d, view_t* v)
 {
     size_t next_x = 0;
-    size_t next_y = *y + FONT_HEIGHT_WORD_SIZE;
-    int ret = display_cul_next_line(d, &next_x, &next_y, GB2312_ASCII);
+    size_t next_y = view_add_y(v, FONT_HEIGHT_WORD_SIZE);
+    int ret = display_cul_next_line(d, v, &next_x, &next_y, GB2312_ASCII);
     if (ret < 0) {
         LOG_ERR("fail to draw endl, x(%zu) y(%zu) to nx(%zu), ny(%zu)",
-            *x, *y, next_x, next_y);
+            v->now_x, v->now_y, next_x, next_y);
         return;
     }
-    *x = next_x;
-    *y = next_y;
+    v->now_x = next_x;
+    v->now_y = next_y;
 }
 
-static inline void display_draw_ascii_word(display_t* d, size_t* x, size_t* y, word_bitmap_t* wb)
+static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_t* wb)
 {
-    assert(d && x && y && wb && "arg failed!");
+    assert(d && v && wb && "arg failed!");
 
     const uint8_t* buffer = (const uint8_t*)wb->ascii;
     static unsigned char key[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
-    size_t next_x = *x;
-    size_t next_y = *y;
+    size_t next_x = v->now_x;
+    size_t next_y = v->now_y;
     int success = 0;
 
     for (int k = 0; k < FONT_HEIGHT_WORD_SIZE; ++k, next_y += 1) {
         for (int i = 0; i < BIT_SIZE; ++i, next_x += 1) {
             success = 0;
-            int ret = display_cul_next_line(d, &next_x, &next_y, GB2312_ASCII);
+            int ret = display_cul_next_line(d, v, &next_x, &next_y, GB2312_ASCII);
             if (ret < 0) {
                 LOG_ERR("fail to draw ascii nx(%zu) ny(%zu) next line.\n", next_x, next_y);
                 return;
             }
 
             int flag = buffer[k * 1] & key[i];
-            display_set_cache_color(d, next_x, next_y, flag ? d->font_color : COLOR_BLACK);
+            display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
             success = 1;
         }
         if (success)
-            next_x = *x;
+            next_x = v->now_x;
     }
     if (success) {
-        *x += ASCII_WORD_SIZE;
-        display_cul_next_line(d, x, y, GB2312_ASCII);
+        v->now_x += ASCII_WORD_SIZE;
+        display_cul_next_line(d, v, &v->now_x, &v->now_y, GB2312_ASCII);
     }
 }
 
-static inline void display_draw_zh_word(display_t* d, size_t* x, size_t* y, word_bitmap_t* wb)
+static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* wb)
 {
-    assert(d && x && y && wb && "arg failed!");
+    assert(d && v && wb && "arg failed!");
 
     const uint8_t* buffer = (const uint8_t*)wb->zh;
     static unsigned char key[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
-    size_t next_x = *x;
-    size_t next_y = *y;
+    size_t next_x = v->now_x;
+    size_t next_y = v->now_y;
     int success = 0;
 
     for (int k = 0; k < FONT_HEIGHT_WORD_SIZE; ++k, next_y += 1) {
@@ -164,26 +179,26 @@ static inline void display_draw_zh_word(display_t* d, size_t* x, size_t* y, word
             success = 0;
             for (int i = 0; i < BIT_SIZE; ++i, next_x += 1) {
                 gb2312_word_type_t break_line = (j == 0 ? GB2312_CHINESE : GB2312_ASCII); // 第二边界有可能又越界
-                int ret = display_cul_next_line(d, &next_x, &next_y, break_line);
+                int ret = display_cul_next_line(d, v, &next_x, &next_y, break_line);
                 if (ret < 0) {
                     LOG_ERR("fail to draw zh nx(%zu) ny(%zu) next line.\n", next_x, next_y);
                     return;
                 }
                 int flag = buffer[k * 2 + j] & key[i];
-                display_set_cache_color(d, next_x, next_y, flag ? d->font_color : COLOR_BLACK);
+                display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
                 success = 1;
             }
         }
-        if (success) {}
-            next_x = *x;
+        if (success) { }
+        next_x = v->now_x;
     }
     if (success) {
-        *x += ZH_WORD_SIZE;
-        display_cul_next_line(d, x, y, GB2312_CHINESE);
+        v->now_x += ZH_WORD_SIZE;
+        display_cul_next_line(d, v, &v->now_x, &v->now_y, GB2312_CHINESE);
     }
 }
 
-int display_view_print(display_t* d, const char* str, size_t str_len, size_t cur_x, size_t cur_y)
+int display_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
 {
     if (!d || !str || !str_len) {
         return 0;
@@ -200,22 +215,22 @@ int display_view_print(display_t* d, const char* str, size_t str_len, size_t cur
 
             switch (*gb) {
             case '\n':
-                display_draw_tabs_word(d, &cur_x, &cur_y);
+                display_draw_tabs_word(d, v);
                 break;
             case '\t':
-                display_draw_endl_word(d, &cur_x, &cur_y);
+                display_draw_endl_word(d, v);
                 break;
             default:
                 break;
             }
             if (isgraph(*gb))
-                display_draw_ascii_word(d, &cur_x, &cur_y, wb);
+                display_draw_ascii_word(d, v, wb);
 
             i += GB2312_ASCII_BIT;
             continue;
         case GB2312_CHINESE:
-            LOG_DBG("try draw zh(0x%x, 0x%x) \n", str[i], str[i+1]);
-            display_draw_zh_word(d, &cur_x, &cur_y, wb);
+            LOG_DBG("try draw zh(0x%x, 0x%x) \n", str[i], str[i + 1]);
+            display_draw_zh_word(d, v, wb);
             i += GB2312_ZH_BIT;
             continue;
             ;
@@ -228,6 +243,15 @@ int display_view_print(display_t* d, const char* str, size_t str_len, size_t cur
     return 0;
 }
 
+void view_cache_clear(display_t* d, view_t* v)
+{
+    size_t start_offset = 0;
+    for (size_t i = v->start_y; i < v->height; ++i) {
+        start_offset = display_cul_cache_offset(d, v->start_x, i);
+        memset(d->cache + start_offset, COLOR_BLACK, v->width);
+    }
+}
+
 /*
  *
  *   +-----+
@@ -235,27 +259,30 @@ int display_view_print(display_t* d, const char* str, size_t str_len, size_t cur
  *   |-----|
  *   |     |  user
  *   +-----+
- * 
+ *
  * */
-void assistant_view_clear(display_t *d)
+inline void assistant_view_clear(display_t* d, view_t* v)
 {
-    size_t offset = display_cul_cache_offset(d, d->fb_info->width-1, ROLE_USER_HEIGHT_START);
-    memset(d->cache, COLOR_BLACK, offset);
+    view_cache_clear(d, v);
 }
 
-int assistant_view_print(display_t* d, const char* str, size_t str_len)
+int assistant_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
 {
-    assert(d && "arg failed.");
+    assert(d && v && "arg failed.");
     if (!str || !str_len) {
         return 0;
     }
-    assistant_view_clear(d);
-    static const char *ai_prefic = "AI: ";
-    display_view_print(d, ai_prefic, strlen(ai_prefic), 0, 0);
-    const size_t now_x = strlen(ai_prefic)*GB2312_ASCII_BIT*BIT_SIZE;
+    assistant_view_clear(d, v);
+    static const char* ai_prefic = "AI: ";
+    v->now_x = 0;
+    v->now_y = 0;
 
-    display_view_print(d, str, str_len, now_x, 0);
-    
+    display_view_print(d, v, ai_prefic, strlen(ai_prefic));
+    v->now_x = strlen(ai_prefic) * GB2312_ASCII_BIT * BIT_SIZE;
+    v->now_y = 0;
+
+    display_view_print(d, v, str, str_len);
+
     display_fflush(&g_display);
     return 0;
 }
@@ -267,35 +294,32 @@ int assistant_view_print(display_t* d, const char* str, size_t str_len)
  *   |-----|
  *   |clear|  user
  *   +-----+
- * 
+ *
  * */
-void user_view_clear(display_t *d)
+inline void user_view_clear(display_t* d, view_t* v)
 {
-    size_t assistant_offset = display_cul_cache_offset(d, d->fb_info->width-1, ROLE_USER_HEIGHT_START);
-    memset(d->cache + assistant_offset, COLOR_BLACK, d->cache_size - assistant_offset - 1);
+    view_cache_clear(d, v);
 }
 
-int user_view_print(display_t* d, char* str, size_t str_len)
+int user_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
 {
-    assert(d && "arg failed.");
+    assert(d && v && "arg failed.");
     if (!str || !str_len) {
         return 0;
     }
-    user_view_clear(d);
-    static const char *user_prefic = "USER: ";
+    user_view_clear(d, v);
+    static const char* user_prefic = "USER: ";
+    v->now_x = 0;
+    v->now_y = ROLE_USER_HEIGHT_START;
 
-    display_view_print(d, user_prefic, strlen(user_prefic), 0, ROLE_USER_HEIGHT_START);
-    const size_t now_x = strlen(user_prefic)*GB2312_ASCII_BIT*BIT_SIZE;
+    display_view_print(d, v, user_prefic, strlen(user_prefic));
+    v->now_x = strlen(user_prefic) * GB2312_ASCII_BIT * BIT_SIZE;
+    v->now_y = ROLE_USER_HEIGHT_START;
 
-    display_view_print(d, str, str_len, now_x, ROLE_USER_HEIGHT_START);
-    
+    display_view_print(d, v, str, str_len);
+
     display_fflush(&g_display);
     return 0;
-}
-
-inline void display_set_font_color(display_t* d, framebuffer_color_t color)
-{
-    d->font_color = color;
 }
 
 void display_exit(display_t* d)
@@ -315,10 +339,9 @@ void display_exit(display_t* d)
     }
 }
 
-static inline void display_view_clear(display_t *d)
+static inline void display_cache_clear(display_t* d)
 {
     assert(d && "arg failed.");
-
     memset(g_display.cache, COLOR_BLACK, g_display.cache_size);
     display_fflush(&g_display);
 }
@@ -348,9 +371,7 @@ display_t* display_init()
         display_exit(&g_display);
         return NULL;
     }
-    display_view_clear(&g_display);
-
-    display_set_font_color(&g_display, COLOR_WHITE);
+    display_cache_clear(&g_display);
 
     return &g_display;
 }
@@ -358,8 +379,8 @@ display_t* display_init()
 #define __XTEST__
 #ifdef __XTEST__
 
-#include <string>
 #include <iostream>
+#include <string>
 
 int main(void)
 {
@@ -375,13 +396,34 @@ int main(void)
     }
     LOG_DBG("0\n");
 
-    display_view_print(d, input.c_str(), input.length(), 0, 0);
-    display_fflush(d);
+    view_t v = {
+        .start_x = 0,
+        .start_y = 0,
+        .width = d->fb_info->width,
+        .height = ROLE_USER_HEIGHT_START,
+        .now_x = 0,
+        .now_y = 0,
+        .font_color = COLOR_WHITE
+    };
+    view_t uv = {
+        .start_x = 0,
+        .start_y = ROLE_USER_HEIGHT_START,
+        .width = d->fb_info->width,
+        .height = d->fb_info->height - ROLE_USER_HEIGHT_START,
+        .now_x = 0,
+        .now_y = ROLE_USER_HEIGHT_START,
+        .font_color = COLOR_WHITE,
+    };
 
+    display_view_print(d, &v, input.c_str(), input.length());
+    //assistant_view_print(d, &v, input.c_str(), input.length());
+
+
+    display_fflush(d);
 
     display_exit(d);
 
     return 0;
 }
 
-#endif//__XTEST__
+#endif //__XTEST__

@@ -1,6 +1,6 @@
 TARGE=display.bin
 
-CC=aarch64-linux-gnu-g++-10
+CC=aarch64-linux-gnu-g++-12
 
 OBJS=$(wildcard *.cpp)
 FLAG=-static -g -s
