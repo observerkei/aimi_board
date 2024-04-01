@@ -11,11 +11,16 @@ extern "C" {
 // example: font_bitmap.c::main()
 
 struct font_data_t;
+#define BIT_SIZE (8)
 #define ZH_WORD_SIZE (32)
 #define ASCII_WORD_SIZE (16)
+#define FONT_HEIGHT_WORD_SIZE (16)
+#define GB2312_ZH_BIT (sizeof(uint16_t))
+#define GB2312_ASCII_BIT (sizeof(uint8_t))
+
 typedef union {
-    uint8_t zh[ZH_WORD_SIZE];
-    uint8_t ascii[ASCII_WORD_SIZE];
+    uint8_t zh[ZH_WORD_SIZE]; // width-16bit, height-16bit
+    uint8_t ascii[ASCII_WORD_SIZE];// width-8bit, height-16bit
 } word_bitmap_t;
 
 typedef struct font_bitmap_t {
@@ -23,11 +28,20 @@ typedef struct font_bitmap_t {
     font_data_t *zh;
 } font_bitmap_t;
 
+typedef enum gb2312_word_type_t {
+    GB2312_UNDEFINE = 0,
+    GB2312_ASCII,
+    GB2312_CHINESE,
+} gb2312_word_type_t;
+
 void font_bitmap_exit(font_bitmap_t* map);
 font_bitmap_t *font_bitmap_init();
 
+
+gb2312_word_type_t get_gb2312_word_type(const uint8_t* gb);
 int is_gb2312_chinese(const uint8_t* gb);
 int is_gb2312_ascii(const uint8_t* gb);
+
 word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb);
 word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t* gb);
 word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb);

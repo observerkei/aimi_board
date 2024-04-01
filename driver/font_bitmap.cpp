@@ -30,9 +30,18 @@ int is_gb2312_chinese(const uint8_t* gb)
 
 int is_gb2312_ascii(const uint8_t* gb)
 {
-    if (gb[0] <= 0xff)
+    if (gb[0] < 0x80)
         return 1;
     return 0;
+}
+
+gb2312_word_type_t get_gb2312_word_type(const uint8_t* gb)
+{
+    if (is_gb2312_ascii(gb))
+        return GB2312_ASCII;
+    if (is_gb2312_chinese(gb))
+        return GB2312_CHINESE;
+    return GB2312_UNDEFINE;
 }
 
 void unload_font(font_data_t* map)
@@ -122,8 +131,8 @@ word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t*
     int offset = 0;
     word_bitmap_t* p_word = NULL;
 
-    offset = ((unsigned int)(gb[0])) * 16;
-    if (offset + 32 > wm->size) {
+    offset = (uint32_t)gb[0] * FONT_HEIGHT_WORD_SIZE;
+    if (offset + FONT_HEIGHT_WORD_SIZE > wm->size) {
         LOG_DBG("ascii word(%x) offset overload: offset(%d)+32 > size(%zu)\n", *gb, offset, wm->size);
         return NULL;
     }
@@ -137,22 +146,28 @@ word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb
     assert(gb && wm && wm->size && "arg is null");
     int offset = 0;
     word_bitmap_t* p_word = NULL;
+#define GB2312_ZH_START (0xa0)
+#define GB2313_ZH_ZONE_FONT_CNT (94)
 
-    offset = (94 * (unsigned int)(gb[0] - 0xa0 - 1) + (gb[1] - 0xa0 - 1)) * 32;
-    if (offset + 32 > wm->size) {
+    offset = (GB2313_ZH_ZONE_FONT_CNT * (uint32_t)(gb[0] - GB2312_ZH_START - 1) + (gb[1] - GB2312_ZH_START - 1)) * ZH_WORD_SIZE;
+    if (offset + ZH_WORD_SIZE > wm->size) {
         LOG_DBG("zh word(%x, %x) offset overload: offset(%d)+32 > size(%zu)", gb[0], gb[1], offset, wm->size);
         return NULL;
     }
+#undef GB2313_ZH_ZONE_FONT_CNT
+#undef GB2312_ZH_START
     p_word = (word_bitmap_t*)(wm->data + offset);
 
     return p_word;
 }
 
-word_bitmap_t* gb2312_to_word_bitmap(const font_data_t* wm, const uint8_t* gb)
+word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
 {
     if (is_gb2312_ascii(gb))
-        return gb2312_ascii_to_word_bitmap(wm, gb);
-    return gb2312_zh_to_word_bitmap(wm, gb);
+        return gb2312_ascii_to_word_bitmap(wm->ascii, gb);
+    if (is_gb2312_chinese(gb))
+        return gb2312_zh_to_word_bitmap(wm->zh, gb);
+    return NULL;
 }
 
 #define __XTEST__
@@ -162,7 +177,7 @@ void display_ascii_word(word_bitmap_t* p_word)
 {
     assert(p_word);
 
-    const uint8_t* buffer = (const uint8_t*)p_word;
+    const uint8_t* buffer = (const uint8_t*)p_word->ascii;
     static unsigned char key[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
     for (int k = 0; k < 16; k++) {
@@ -186,7 +201,7 @@ void display_zh_word(word_bitmap_t* p_word)
 {
     assert(p_word);
 
-    const uint8_t* buffer = (const uint8_t*)p_word;
+    const uint8_t* buffer = (const uint8_t*)p_word->zh;
     static unsigned char key[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
     for (int k = 0; k < 16; k++) {
@@ -206,11 +221,12 @@ void display_zh_word(word_bitmap_t* p_word)
     printf("\n");
 }
 
-void display_word(word_bitmap_t* p_word, int is_zh)
+void display_word(word_bitmap_t* p_word, gb2312_word_type_t type)
 {
-    if (!is_zh)
+    if (type == GB2312_ASCII)
         return display_ascii_word(p_word);
-    return display_zh_word(p_word);
+    if (type == GB2312_CHINESE)
+        return display_zh_word(p_word);
 }
 
 int main(void)
@@ -229,29 +245,18 @@ int main(void)
     for (size_t i = 0; i < input.length(); i) {
         // 有个字符是结束标志故判断没关系.
         const uint8_t* gb = (const uint8_t*)(input.c_str() + i);
-        int is_zh = is_gb2312_chinese(gb);
-        if (!is_zh) {
-            LOG_DBG("skip input[%zu] ch: %c\n", i, input[i]);
-            word_bitmap_t* wb = gb2312_ascii_to_word_bitmap(wm->ascii, gb);
-            if (!wb) {
-                LOG_ERR("fail to read gb(%hhu)\n", gb[0]);
-                return -1;
-            }
-                
-            display_word(wb, is_zh);
-            i += 1;
-            continue;
-        }
-
-        word_bitmap_t* wb = gb2312_zh_to_word_bitmap(wm->zh, gb);
+        gb2312_word_type_t type = get_gb2312_word_type(gb);
+        word_bitmap_t* wb = gb2312_to_word_bitmap(wm, gb);
         if (!wb) {
             LOG_ERR("fail to read gb(%hhu, %hhu)\n", gb[0], gb[1]);
             return -1;
         }
-        display_word(wb, is_zh);
-
+        display_word(wb, type);
+        if (type == GB2312_CHINESE)
+            i += 2;
+        else
+            i += 1;
         // gb2312 一个汉字2个字节.
-        i += 2;
     }
 
     font_bitmap_exit(wm);
