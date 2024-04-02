@@ -1,10 +1,10 @@
 #include <assert.h>
 #include <cstdint>
 #include <cstring>
+#include <iconv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <iconv.h>
 
 #include "debug.h"
 #include "font_bitmap.h"
@@ -83,7 +83,7 @@ font_data_t* load_font(const char* filename, size_t max_data_size)
     return map;
 }
 
-void font_bitmap_exit(font_bitmap_t *fb)
+void font_bitmap_exit(font_bitmap_t* fb)
 {
     if (!fb)
         return;
@@ -97,9 +97,9 @@ void font_bitmap_exit(font_bitmap_t *fb)
     }
 }
 
-font_bitmap_t *font_bitmap_init()
+font_bitmap_t* font_bitmap_init()
 {
-    font_bitmap_t *fb = (font_bitmap_t *)malloc(sizeof(font_bitmap_t));
+    font_bitmap_t* fb = (font_bitmap_t*)malloc(sizeof(font_bitmap_t));
     if (!fb) {
         LOG_ERR("fail to malloc font bitmap");
         return NULL;
@@ -144,12 +144,18 @@ word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb
     int offset = 0;
     word_bitmap_t* p_word = NULL;
 
-    offset = (94 * (unsigned int)(gb[0] - 0xa0 - 1) + (gb[1] - 0xa0 - 1)) * 32;
-    if (offset + 32 > wm->size) {
+#define GB2312_ZH_START (0xa0)
+#define FONT_ZH_BITMAP_SIZE (32)
+#define GB2312_ZONE_CODE_ZH_SIZE (94)
+    offset = (GB2312_ZONE_CODE_ZH_SIZE * (uint32_t)(gb[0] - GB2312_ZH_START - 1) + (gb[1] - GB2312_ZH_START - 1)) * FONT_ZH_BITMAP_SIZE;
+    if (offset + FONT_ZH_BITMAP_SIZE > wm->size) {
         LOG_DBG("zh word(%x, %x) offset overload: offset(%d)+32 > size(%zu)", gb[0], gb[1], offset, wm->size);
         return NULL;
     }
     p_word = (word_bitmap_t*)(wm->data + offset);
+#undef GB2312_ZONE_CODE_ZH_SIZE
+#undef FONT_ZH_BITMAP_SIZE
+#undef GB2312_ZH_START
 
     return p_word;
 }
@@ -163,31 +169,32 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
     return NULL;
 }
 
-int str_to_gb2312(const char *from_code, const char *src, char *dest, size_t *dest_size)
+int str_to_gb2312(const char* from_code, const char* src, const size_t dest_size, char* dest)
 {
     // 创建 iconv 转换句柄 GB2312 <- UTF8
     iconv_t cd = iconv_open("GB2312", from_code);
     if (cd == (iconv_t)-1) {
         LOG_ERR("fail to iconv gbk2312");
-        return 1;
+        return -1;
     }
 
-    char *p_src = (char *)src;
-    char *p_dest = dest;
+    char* p_src = (char*)src;
+    char* p_dest = dest;
+    size_t leat_size = dest_size;
     size_t src_size = strlen(p_src) + 1;
-    if (iconv(cd, &p_src, &src_size, &p_dest, dest_size) == (size_t)-1) {
+    if (iconv(cd, &p_src, &src_size, &p_dest, &leat_size) == (size_t)-1) {
         LOG_ERR("fail to iconv gb2312");
         iconv_close(cd);
-        return 1;
+        return -1;
     }
 
     // 关闭 iconv 转换句柄
     iconv_close(cd);
 
-    LOG_DBG("conv %s: %s(%02x, %02x, %02x, %02x) to GB2312: %s(%02x, %02x)",
-        from_code, src, src[0], src[1], src[2], src[4], dest, dest[0], dest[1]);
+    // LOG_DBG("conv %s: %s(%02x, %02x, %02x, %02x) to GB2312: %s(%02x, %02x)",
+    //     from_code, src, src[0], src[1], src[2], src[4], dest, dest[0], dest[1]);
 
-    return 0;
+    return dest_size - leat_size;
 }
 
 #ifdef __XTEST__

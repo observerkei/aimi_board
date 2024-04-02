@@ -284,13 +284,13 @@ int assistant_view_print(display_t* d, view_t* v, const char* str, size_t str_le
     static const char* ai_prefic = "AI: ";
     char buf[128] = {0};
     size_t buf_size = sizeof(buf);
-    int ret = str_to_gb2312("UTF-8", ai_prefic, buf, &buf_size);
-    if (ret < 0) {
+    int len = str_to_gb2312("UTF-8", ai_prefic, buf_size, buf);
+    if (len < 0) {
         LOG_DBG("fail to print USER");
         return -1;
     }
 
-    display_view_print(d, v, buf, strlen(buf));
+    display_view_print(d, v, buf, len);
 
     display_view_print(d, v, str, str_len);
 
@@ -322,13 +322,13 @@ int user_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
     static const char* user_prefic = "USER: ";
     char buf[128] = {0};
     size_t buf_size = sizeof(buf);
-    int ret = str_to_gb2312("UTF-8", user_prefic, buf, &buf_size);
-    if (ret < 0) {
+    int len = str_to_gb2312("UTF-8", user_prefic, buf_size, buf);
+    if (len < 0) {
         LOG_DBG("fail to print USER");
         return -1;
     }
 
-    display_view_print(d, v, buf, strlen(buf));
+    display_view_print(d, v, buf, len);
     display_view_print(d, v, str, str_len);
 
     display_fflush(&g_display);
@@ -442,14 +442,16 @@ int main(void)
     std::cin >> input;
     std::cout << "msg len: " << input.length() << "\n";
     
-    int ret = str_to_gb2312("UTF-8", input.c_str(), buffer, &buffer_size);
-    user_view_print(d, &uv, buffer, buffer_size);
+    int len = str_to_gb2312("UTF-8", input.c_str(), buffer_size, buffer);
+    std::cout << "buffer len: " << len << "\n";
+    user_view_print(d, &uv, buffer, len);
     
     std::cout << "input assistant msg: \n";
     std::cin >> input;
     std::cout << "msg len: " << input.length() << "\n";
-    ret = str_to_gb2312("UTF-8", input.c_str(), buffer, &buffer_size);
-    assistant_view_print(d, &av, buffer, buffer_size);
+    len = str_to_gb2312("UTF-8", input.c_str(), buffer_size, buffer);
+    std::cout << "buffer len: " << len << "\n";
+    assistant_view_print(d, &av, buffer, len);
 
 
     display_fflush(d);
