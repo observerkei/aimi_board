@@ -32,12 +32,15 @@ typedef struct view_t {
 } view_t;
 
 void display_exit(display_t *d);
-display_t *display_init(const char *fb_dev);
+display_t *display_init(const char *fb_dev, const char *font_path);
+
+void display_set_debug(char enable);
 
 size_t display_get_width(display_t *d);
 size_t display_get_height(display_t *d);
 
 void display_fflush(display_t *d);
+void display_view_clear(display_t* d, view_t* v);
 
 // 往缓存上画点的函数
 void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffer_color_t color);

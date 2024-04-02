@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include <string>
+
 #include "debug.h"
 #include "font_bitmap.h"
 
@@ -97,8 +99,9 @@ void font_bitmap_exit(font_bitmap_t* fb)
     }
 }
 
-font_bitmap_t* font_bitmap_init()
+font_bitmap_t* font_bitmap_init(const char *font_path)
 {
+    assert(font_path && "font path fail!");
     font_bitmap_t* fb = (font_bitmap_t*)malloc(sizeof(font_bitmap_t));
     if (!fb) {
         LOG_ERR("fail to malloc font bitmap");
@@ -106,20 +109,30 @@ font_bitmap_t* font_bitmap_init()
     }
     memset(fb, 0, sizeof(font_bitmap_t));
 
-    fb->ascii = load_font("ASC8x16", WORD_ASCII_MAX_SIZE);
+    std::string font_name = font_path;
+    font_name += "/ascii_8x16";
+
+    fb->ascii = load_font(font_name.c_str(), WORD_ASCII_MAX_SIZE);
     if (!fb->ascii) {
         LOG_ERR("fail to load ascii");
         unload_font(fb->ascii);
         return NULL;
     }
-    fb->zh = load_font("hzk16x16h", WORD_ZH_MAP_MAX_SIZE);
+    LOG_DBG("load font %s", font_name.c_str());
+
+    font_name = font_path;
+    font_name += "/gb2312_16x16";
+    fb->zh = load_font(font_name.c_str(), WORD_ZH_MAP_MAX_SIZE);
     if (!fb->zh) {
         LOG_ERR("fail to load zh");
         unload_font(fb->zh);
         return NULL;
     }
+    LOG_DBG("load font %s", font_name.c_str());
 
     return fb;
+err:
+    return NULL;
 }
 
 word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t* gb)
@@ -199,7 +212,8 @@ int str_to_gb2312(const char* from_code, size_t src_size, const char* src, const
 #ifdef __XTEST__
 
 #include <iostream>
-#include <string>
+
+char g_dbg_enable = 1;
 
 void display_ascii_word(word_bitmap_t* p_word)
 {

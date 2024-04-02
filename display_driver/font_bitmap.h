@@ -38,7 +38,7 @@ typedef enum gb2312_word_type_t {
 } gb2312_word_type_t;
 
 void font_bitmap_exit(font_bitmap_t* map);
-font_bitmap_t *font_bitmap_init();
+font_bitmap_t *font_bitmap_init(const char *font_path);
 
 
 gb2312_word_type_t get_gb2312_word_type(const uint8_t* gb);

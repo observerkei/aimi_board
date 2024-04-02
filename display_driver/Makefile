@@ -1,6 +1,7 @@
 TARGE=display.so
 TEST_APP = display.app
-CC=aarch64-linux-gnu-g++-12
+CC=g++
+ARM64_CC=aarch64-linux-gnu-g++-12
 
 OBJS=$(wildcard *.cpp)
 FLAG=

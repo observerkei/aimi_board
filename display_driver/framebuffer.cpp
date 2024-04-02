@@ -72,6 +72,8 @@ framebuffer_t* framebuffer_init(const char *dev_file)
 
 #ifdef __XTEST__
 
+char g_dbg_enable = 1;
+
 int main()
 {
     framebuffer_t *fb = framebuffer_init("/dev/fb0");

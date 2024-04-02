@@ -27,6 +27,8 @@
 #define DISPLAY_SPACE_WIDTH_BIT (ASCII_WORD_SIZE)
 #define DISPLAY_SPACE_HEIGHT_BIT (FONT_HEIGHT_WORD_SIZE)
 
+char g_dbg_enable = 1;
+
 typedef struct display_t {
     size_t cache_size;
     size_t conv_gb2312_size;
@@ -48,6 +50,11 @@ static inline size_t view_add_y(view_t* v, size_t add)
     if (v->now_y + add > v->start_y + v->height)
         return 0;
     return v->now_y + add;
+}
+
+void display_set_debug(char enable)
+{
+    g_dbg_enable = enable;
 }
 
 static inline size_t display_cul_cache_offset(display_t* d, size_t x, size_t y)
@@ -76,7 +83,9 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
         ? d->fb_info->width
         : v->start_x + v->width;
     
-    // LOG_DBG("nx(%zu), ny(%zu), real_width(%zu), v->start_x: %zu, v->width: %zu, d->fb_info->width: %zu", 
+    assert(real_width && "width fail!");
+
+    // LOG_DBG("nx(%zu), ny(%zu), real_width(%zu), v->start_x: %zu, v->width: %zu, d->fb_info->width: %zu",
     //     next_x, next_y, real_width, v->start_x, v->width, d->fb_info->width);
 
     if (next_x >= real_width || next_x + space >= real_width) {
@@ -88,8 +97,10 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
     size_t real_height = v->start_y + v->height >= d->fb_info->height
         ? d->fb_info->height
         : v->start_y + v->height;
-    
-    // LOG_DBG("nx(%zu), ny(%zu), real_height(%zu), v->start_y: %zu, v->height: %zu, d->fb_info->height: %zu", 
+
+    assert(real_height && "height fail!");
+
+    // LOG_DBG("nx(%zu), ny(%zu), real_height(%zu), v->start_y: %zu, v->height: %zu, d->fb_info->height: %zu",
     //     next_x, next_y, real_height, v->start_y, v->height, d->fb_info->height);
 
     if (next_y >= real_height) {
@@ -156,6 +167,9 @@ static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_
 
             int flag = buffer[k * 1] & key[i];
             display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
+            if (flag)
+                LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
+                    v->font_color, next_x, next_y, d);
             success = 1;
         }
         if (success)
@@ -189,6 +203,9 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
                 }
                 int flag = buffer[k * 2 + j] & key[i];
                 display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
+                if (flag)
+                    LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
+                        v->font_color, next_x, next_y, d);
                 success = 1;
             }
         }
@@ -201,7 +218,7 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
     }
 }
 
-int display_view_print_gb2312(display_t* d, view_t* v, const char* str, size_t str_len)
+static int display_view_print_gb2312(display_t* d, view_t* v, const char* str, size_t str_len)
 {
     if (!d || !str || !str_len) {
         return 0;
@@ -246,23 +263,33 @@ int display_view_print_gb2312(display_t* d, view_t* v, const char* str, size_t s
     return 0;
 }
 
-static int display_extern_conv_cache(display_t *d, size_t new_size)
+static int display_extern_conv_cache(display_t* d, size_t new_size)
 {
     assert(new_size && "new_size fail!");
-    char *new_buffer = (char *)malloc(new_size);
+    char* new_buffer = (char*)malloc(new_size);
     if (!new_buffer) {
         LOG_ERR("fail to extern conv cache");
         return -1;
     }
-    char *old_cache = d->conv_gb2312_cache;
+    char* old_cache = d->conv_gb2312_cache;
     d->conv_gb2312_cache = new_buffer;
     free(old_cache);
 
     return 0;
 }
 
-int display_view_print(display_t* d, view_t* v, const char *from_code, const char* str, size_t str_len)
+static void display_show_view_info(view_t* v)
 {
+    LOG_DBG("  start_x: %zu, start_y: %zu, width: %zu, height: %zu, "
+            "now_x: %zu, now_y: %zu, start_x: %zu, start_y: %zu, font_color: %hu",
+        v->start_x, v->start_y, v->width, v->height, v->now_x,
+        v->now_y, v->start_x, v->start_y, v->font_color);
+}
+
+int display_view_print(display_t* d, view_t* v, const char* from_code, const char* str, size_t str_len)
+{
+    LOG_DBG("display(%p) try print.", d);
+    display_show_view_info(v);
     // 如果不是GB2312编码，则进行编码转换
     if (0 != strcasecmp("GB2312", from_code)) {
         // 如果转换编码的缓存不够，则拓展缓存
@@ -284,8 +311,7 @@ int display_view_print(display_t* d, view_t* v, const char *from_code, const cha
     return display_view_print_gb2312(d, v, str, str_len);
 }
 
-
-void view_cache_clear(display_t* d, view_t* v)
+void display_view_clear(display_t* d, view_t* v)
 {
     size_t start_offset = 0;
     for (size_t i = v->start_y; i < v->height; ++i) {
@@ -300,7 +326,7 @@ void display_exit(display_t* d)
 {
     if (!d)
         return;
-    
+
     if (d->font) {
         font_bitmap_exit(d->font);
         d->font = NULL;
@@ -318,6 +344,8 @@ void display_exit(display_t* d)
         d->cache = NULL;
         d->cache_size = 0;
     }
+    LOG_DBG("display(%p) clear success.", d);
+
     free(d);
 }
 
@@ -328,14 +356,14 @@ static inline void display_cache_clear(display_t* d)
     display_fflush(d);
 }
 
-size_t display_get_width(display_t *d)
+size_t display_get_width(display_t* d)
 {
     if (!d)
         return 0;
     return d->fb_info->width;
 }
 
-size_t display_get_height(display_t *d)
+size_t display_get_height(display_t* d)
 {
     if (!d)
         return 0;
@@ -344,23 +372,23 @@ size_t display_get_height(display_t *d)
 
 #define DEFUALT_SIZE (1024)
 
-display_t* display_init(const char *fb_dev)
+display_t* display_init(const char* fb_dev, const char *font_path)
 {
-    display_t *d = (display_t *)malloc(sizeof(display_t));
+    display_t* d = (display_t*)malloc(sizeof(display_t));
     if (!d) {
         LOG_ERR("fail to malloc display");
         return NULL;
     }
     memset(d, 0, sizeof(display_t));
 
-    d->font = font_bitmap_init();
+    d->font = font_bitmap_init(font_path);
     if (!d->font) {
         LOG_ERR("fail to init font.");
         goto err;
     }
 
     d->conv_gb2312_size = DEFUALT_SIZE;
-    d->conv_gb2312_cache = (char *)malloc(d->conv_gb2312_size);
+    d->conv_gb2312_cache = (char*)malloc(d->conv_gb2312_size);
     if (!d->conv_gb2312_cache) {
         goto err;
     }
@@ -372,7 +400,6 @@ display_t* display_init(const char *fb_dev)
         goto err;
     }
 
-
     d->cache_size = d->fb_info->screen_size;
     d->cache = (uint8_t*)malloc(d->cache_size);
     if (!d->cache) {
@@ -381,13 +408,14 @@ display_t* display_init(const char *fb_dev)
     }
     display_cache_clear(d);
 
+    LOG_DBG("display(%p) create success.", d);
+
     return d;
 err:
     display_exit(d);
     return NULL;
 }
 
-#define __DISPLAY_XTEST__
 #ifdef __DISPLAY_XTEST__
 
 #include <iostream>
@@ -408,10 +436,10 @@ err:
  * */
 inline void assistant_view_clear(display_t* d, view_t* v)
 {
-    view_cache_clear(d, v);
+    display_view_clear(d, v);
 }
 
-int assistant_view_print(display_t* d, view_t* v, const char *from_code, const char* str, size_t str_len)
+int assistant_view_print(display_t* d, view_t* v, const char* from_code, const char* str, size_t str_len)
 {
     assert(d && v && "arg failed.");
     if (!str || !str_len) {
@@ -438,10 +466,10 @@ int assistant_view_print(display_t* d, view_t* v, const char *from_code, const c
  * */
 inline void user_view_clear(display_t* d, view_t* v)
 {
-    view_cache_clear(d, v);
+    display_view_clear(d, v);
 }
 
-int user_view_print(display_t* d, view_t* v, const char *from_code, const char* str, size_t str_len)
+int user_view_print(display_t* d, view_t* v, const char* from_code, const char* str, size_t str_len)
 {
     assert(d && v && "arg failed.");
     if (!str || !str_len) {
@@ -449,7 +477,7 @@ int user_view_print(display_t* d, view_t* v, const char *from_code, const char* 
     }
     user_view_clear(d, v);
 
-    display_view_print(d, v, "UTF-8",  "USER: ", strlen( "USER: "));
+    display_view_print(d, v, "UTF-8", "USER: ", strlen("USER: "));
     display_view_print(d, v, from_code, str, str_len);
 
     display_fflush(d);
@@ -484,23 +512,22 @@ int main(void)
     };
 
     std::string input;
-    
+
     // std::cout << "input test msg: \n";
     // std::cin >> input;
     // std::cout << "msg len: " << input.length() << "\n";
-    
+
     // display_view_print(d, &av, input.c_str(), input.length());
     // sleep(3);
-    // view_cache_clear(d, &av);
-    
+    // display_view_clear(d, &av);
+
     std::cout << "input user msg: \n";
     std::cin >> input;
     user_view_print(d, &uv, "UTF-8", input.c_str(), input.length());
-    
+
     std::cout << "input assistant msg: \n";
     std::cin >> input;
     assistant_view_print(d, &av, "UTF-8", input.c_str(), input.length());
-
 
     display_fflush(d);
 

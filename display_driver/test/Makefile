@@ -1,5 +1,6 @@
 TARGE=
-CC=aarch64-linux-gnu-g++-12
+CC=g++
+ARM64_CC=aarch64-linux-gnu-g++-12
 
 OBJS=$(wildcard *.cpp ../*.cpp libopenai_api/libopenai_api.cpp)
 FLAG= -static
