@@ -1,22 +1,33 @@
-TARGE=display.bin
-
+TARGE=display.so
+TEST_APP = display.app
 CC=aarch64-linux-gnu-g++-12
 
 OBJS=$(wildcard *.cpp)
-FLAG=-static -g -s
+FLAG=
+SO_FLAG=-s -g  -shared -fPIC -g $(FLAG)
+
+all: $(TARGE)
 
 %.o:%.cpp
-	$(CC) -c -o $@ $^
+	$(CC) $(SO_FLAG) -c -o $@ $^
 
 $(TARGE):$(OBJS:.cpp=.o)
-	$(CC) $(FLAG) -o $@ $^
+	$(CC) $(SO_FLAG) -o $@ $^
+
+test: $(OBJS)
+	mkdir -p test
+	$(CC) $(FLAG) -D__DISPLAY_XTEST__ -o test/$(TEST_APP) $^
+	cd test && $(MAKE)
 
 push:
 	~/ssh-dev/maixsense.sh push $(TARGE)
 	echo "push done"
 
+clean_test:
+	cd test && $(MAKE) clean
+
 clean:
 	rm *.o $(TARGE)
 
-.PHONY: clean push
+.PHONY: clean push test
 

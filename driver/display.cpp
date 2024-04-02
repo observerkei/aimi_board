@@ -359,6 +359,20 @@ static inline void display_cache_clear(display_t* d)
     display_fflush(&g_display);
 }
 
+size_t display_get_width(display_t *d)
+{
+    if (!d)
+        return 0;
+    return d->fb_info->width;
+}
+
+size_t display_get_height(display_t *d)
+{
+    if (!d)
+        return 0;
+    return d->fb_info->height;
+}
+
 display_t* display_init()
 {
     if (g_display.fb_info) {
@@ -389,8 +403,7 @@ display_t* display_init()
     return &g_display;
 }
 
-#define __XTEST__
-#ifdef __XTEST__
+#ifdef __DISPLAY_XTEST__
 
 #include <iostream>
 #include <string>
@@ -408,7 +421,7 @@ int main(void)
     view_t av = {
         .start_x = 0,
         .start_y = 0,
-        .width = d->fb_info->width,
+        .width = display_get_width(d),
         .height = ROLE_USER_HEIGHT_START,
         .now_x = 0,
         .now_y = 0,
@@ -417,8 +430,8 @@ int main(void)
     view_t uv = {
         .start_x = 0,
         .start_y = ROLE_USER_HEIGHT_START,
-        .width = d->fb_info->width,
-        .height = d->fb_info->height - ROLE_USER_HEIGHT_START,
+        .width = display_get_width(d),
+        .height = display_get_height(d) - ROLE_USER_HEIGHT_START,
         .now_x = 0,
         .now_y = ROLE_USER_HEIGHT_START,
         .font_color = COLOR_WHITE,
@@ -461,4 +474,4 @@ int main(void)
     return 0;
 }
 
-#endif //__XTEST__
+#endif //__DISPLAY_XTEST__

@@ -216,14 +216,14 @@ void display_ascii_word(word_bitmap_t* p_word)
                 printf("%s", flag ? "●" : "○");
             }
         }
-        printf("");
+        printf("\n");
     }
 
     for (int k = 0; k < 31; k++) {
         printf("0x%02X,", buffer[k]);
     }
 
-    printf("");
+    printf("\n");
 }
 
 void display_zh_word(word_bitmap_t* p_word)
@@ -240,14 +240,14 @@ void display_zh_word(word_bitmap_t* p_word)
                 printf("%s", flag ? "●" : "○");
             }
         }
-        printf("");
+        printf("\n");
     }
 
     for (int k = 0; k < 31; k++) {
         printf("0x%02X,", buffer[k]);
     }
 
-    printf("");
+    printf("\n");
 }
 
 void display_word(word_bitmap_t* p_word, gb2312_word_type_t type)

@@ -34,6 +34,9 @@ typedef struct view_t {
 void display_exit(display_t *d);
 display_t *display_init();
 
+size_t display_get_width(display_t *d);
+size_t display_get_height(display_t *d);
+
 void display_fflush(display_t *d);
 
 int display_view_print(display_t* d, view_t *v, const char* str, size_t str_len);
