@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "debug.h"
 #include "display.h"
 #include "font_bitmap.h"
 
@@ -22,8 +23,6 @@
  *
  * */
 
-#define LOG_DBG(fmt, ...) fprintf(stdout, "[%s:%s:%u] " fmt, __FILE__, __func__, __LINE__, ##__VA_ARGS__)
-#define LOG_ERR(fmt, ...) fprintf(stderr, "[%s:%s:%u] " fmt, __FILE__, __func__, __LINE__, ##__VA_ARGS__)
 #define DISPLAY_TABS_OF_SPACE (2)
 #define DISPLAY_SPACE_WIDTH_BIT (ASCII_WORD_SIZE)
 #define DISPLAY_SPACE_HEIGHT_BIT (FONT_HEIGHT_WORD_SIZE)
@@ -75,9 +74,12 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
     size_t next_y = *y;
     size_t space = (type == GB2312_CHINESE ? ZH_WORD_SIZE : ASCII_WORD_SIZE);
 
-    size_t real_width = v->start_x + v->width > d->fb_info->width
-        ? d->fb_info->width - v->start_x
-        : v->width;
+    size_t real_width = v->start_x + v->width >= d->fb_info->width
+        ? d->fb_info->width
+        : v->start_x + v->width;
+    
+    // LOG_DBG("nx(%zu), ny(%zu), real_width(%zu), v->start_x: %zu, v->width: %zu, d->fb_info->width: %zu", 
+    //     next_x, next_y, real_width, v->start_x, v->width, d->fb_info->width);
 
     if (next_x >= real_width || next_x + space >= real_width) {
         next_y += FONT_HEIGHT_WORD_SIZE;
@@ -85,9 +87,12 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
         display_cul_next_line(d, v, &next_x, &next_y, type);
     }
 
-    size_t real_height = v->start_y + v->height > d->fb_info->height
-        ? d->fb_info->height - v->start_y
-        : v->height;
+    size_t real_height = v->start_y + v->height >= d->fb_info->height
+        ? d->fb_info->height
+        : v->start_y + v->height;
+    
+    // LOG_DBG("nx(%zu), ny(%zu), real_height(%zu), v->start_y: %zu, v->height: %zu, d->fb_info->height: %zu", 
+    //     next_x, next_y, real_height, v->start_y, v->height, d->fb_info->height);
 
     if (next_y >= real_height) {
         next_y = v->start_y;
@@ -105,7 +110,7 @@ static void display_draw_space_word(display_t* d, view_t* v)
     size_t next_y = v->now_y;
     int ret = display_cul_next_line(d, v, &next_x, &next_y, GB2312_ASCII);
     if (ret < 0) {
-        LOG_DBG("display over flow! cx(%zu) y(%zu)\n", next_x, next_y);
+        LOG_DBG("display over flow! cx(%zu) y(%zu)", next_x, next_y);
         return;
     }
     v->now_x = next_x;
@@ -147,7 +152,7 @@ static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_
             success = 0;
             int ret = display_cul_next_line(d, v, &next_x, &next_y, GB2312_ASCII);
             if (ret < 0) {
-                LOG_ERR("fail to draw ascii nx(%zu) ny(%zu) next line.\n", next_x, next_y);
+                LOG_ERR("fail to draw ascii nx(%zu) ny(%zu) next line.", next_x, next_y);
                 return;
             }
 
@@ -181,7 +186,7 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
                 gb2312_word_type_t break_line = (j == 0 ? GB2312_CHINESE : GB2312_ASCII); // 第二边界有可能又越界
                 int ret = display_cul_next_line(d, v, &next_x, &next_y, break_line);
                 if (ret < 0) {
-                    LOG_ERR("fail to draw zh nx(%zu) ny(%zu) next line.\n", next_x, next_y);
+                    LOG_ERR("fail to draw zh nx(%zu) ny(%zu) next line.", next_x, next_y);
                     return;
                 }
                 int flag = buffer[k * 2 + j] & key[i];
@@ -211,8 +216,6 @@ int display_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
         gb2312_word_type_t type = get_gb2312_word_type(gb);
         switch (type) {
         case GB2312_ASCII:
-            LOG_DBG("try draw ascii: %c\n", str[i]);
-
             switch (*gb) {
             case '\n':
                 display_draw_tabs_word(d, v);
@@ -223,13 +226,15 @@ int display_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
             default:
                 break;
             }
-            if (isgraph(*gb))
+            if (isgraph(*gb)) {
+                LOG_DBG("try draw ascii: %c", str[i]);
                 display_draw_ascii_word(d, v, wb);
+            }
 
             i += GB2312_ASCII_BIT;
             continue;
         case GB2312_CHINESE:
-            LOG_DBG("try draw zh(0x%x, 0x%x) \n", str[i], str[i + 1]);
+            LOG_DBG("try draw zh(0x%x, 0x%x) ", str[i], str[i + 1]);
             display_draw_zh_word(d, v, wb);
             i += GB2312_ZH_BIT;
             continue;
@@ -250,6 +255,8 @@ void view_cache_clear(display_t* d, view_t* v)
         start_offset = display_cul_cache_offset(d, v->start_x, i);
         memset(d->cache + start_offset, COLOR_BLACK, v->width);
     }
+    v->now_x = v->start_x;
+    v->now_y = v->start_y;
 }
 
 /*
@@ -273,13 +280,17 @@ int assistant_view_print(display_t* d, view_t* v, const char* str, size_t str_le
         return 0;
     }
     assistant_view_clear(d, v);
+    
     static const char* ai_prefic = "AI: ";
-    v->now_x = 0;
-    v->now_y = 0;
+    char buf[128] = {0};
+    size_t buf_size = sizeof(buf);
+    int ret = str_to_gb2312("UTF-8", ai_prefic, buf, &buf_size);
+    if (ret < 0) {
+        LOG_DBG("fail to print USER");
+        return -1;
+    }
 
-    display_view_print(d, v, ai_prefic, strlen(ai_prefic));
-    v->now_x = strlen(ai_prefic) * GB2312_ASCII_BIT * BIT_SIZE;
-    v->now_y = 0;
+    display_view_print(d, v, buf, strlen(buf));
 
     display_view_print(d, v, str, str_len);
 
@@ -309,13 +320,15 @@ int user_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
     }
     user_view_clear(d, v);
     static const char* user_prefic = "USER: ";
-    v->now_x = 0;
-    v->now_y = ROLE_USER_HEIGHT_START;
+    char buf[128] = {0};
+    size_t buf_size = sizeof(buf);
+    int ret = str_to_gb2312("UTF-8", user_prefic, buf, &buf_size);
+    if (ret < 0) {
+        LOG_DBG("fail to print USER");
+        return -1;
+    }
 
-    display_view_print(d, v, user_prefic, strlen(user_prefic));
-    v->now_x = strlen(user_prefic) * GB2312_ASCII_BIT * BIT_SIZE;
-    v->now_y = ROLE_USER_HEIGHT_START;
-
+    display_view_print(d, v, buf, strlen(buf));
     display_view_print(d, v, str, str_len);
 
     display_fflush(&g_display);
@@ -353,13 +366,13 @@ display_t* display_init()
     }
     g_display.font = font_bitmap_init();
     if (!g_display.font) {
-        LOG_ERR("fail to init font.\n");
+        LOG_ERR("fail to init font.");
         return NULL;
     }
 
     g_display.fb_info = framebuffer_init();
     if (!g_display.fb_info) {
-        LOG_ERR("fail to init framebuffer.\n");
+        LOG_ERR("fail to init framebuffer.");
         display_exit(&g_display);
         return NULL;
     }
@@ -367,7 +380,7 @@ display_t* display_init()
     g_display.cache_size = g_display.fb_info->screen_size;
     g_display.cache = (uint8_t*)malloc(g_display.cache_size);
     if (!g_display.cache) {
-        LOG_ERR("fail to malloc display.\n");
+        LOG_ERR("fail to malloc display.");
         display_exit(&g_display);
         return NULL;
     }
@@ -381,22 +394,18 @@ display_t* display_init()
 
 #include <iostream>
 #include <string>
+#include <unistd.h>
 
 int main(void)
 {
-    std::string input;
-    std::cin >> input;
-
-    std::cout << "input len: " << input.length() << "\n";
 
     display_t* d = display_init();
     if (!d) {
         LOG_ERR("fail to init display.");
         return -1;
     }
-    LOG_DBG("0\n");
 
-    view_t v = {
+    view_t av = {
         .start_x = 0,
         .start_y = 0,
         .width = d->fb_info->width,
@@ -415,8 +424,32 @@ int main(void)
         .font_color = COLOR_WHITE,
     };
 
-    display_view_print(d, &v, input.c_str(), input.length());
-    //assistant_view_print(d, &v, input.c_str(), input.length());
+    char buffer[1024] = {0};
+    size_t buffer_size = sizeof(buffer);
+
+    
+    std::string input;
+    
+    // std::cout << "input test msg: \n";
+    // std::cin >> input;
+    // std::cout << "msg len: " << input.length() << "\n";
+    
+    // display_view_print(d, &av, input.c_str(), input.length());
+    // sleep(3);
+    // view_cache_clear(d, &av);
+    
+    std::cout << "input user msg: \n";
+    std::cin >> input;
+    std::cout << "msg len: " << input.length() << "\n";
+    
+    int ret = str_to_gb2312("UTF-8", input.c_str(), buffer, &buffer_size);
+    user_view_print(d, &uv, buffer, buffer_size);
+    
+    std::cout << "input assistant msg: \n";
+    std::cin >> input;
+    std::cout << "msg len: " << input.length() << "\n";
+    ret = str_to_gb2312("UTF-8", input.c_str(), buffer, &buffer_size);
+    assistant_view_print(d, &av, buffer, buffer_size);
 
 
     display_fflush(d);

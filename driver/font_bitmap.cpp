@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <iconv.h>
 
+#include "debug.h"
 #include "font_bitmap.h"
 
 #define WORD_ASCII_MAX_SIZE (5 * 1024LU)
@@ -14,9 +16,6 @@ typedef struct font_data_t {
     size_t size;
     uint8_t data[0];
 } font_data_t;
-
-#define LOG_DBG(fmt, ...) fprintf(stdout, fmt, ##__VA_ARGS__)
-#define LOG_ERR(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 int is_gb2312_chinese(const uint8_t* gb)
 {
@@ -54,13 +53,13 @@ font_data_t* load_font(const char* filename, size_t max_data_size)
     FILE* fphzk = NULL;
     fphzk = fopen(filename, "rb");
     if (fphzk == NULL) {
-        fprintf(stderr, "error hzk16\n");
+        fprintf(stderr, "error hzk16");
         return NULL;
     }
     fseek(fphzk, 0, SEEK_END);
     long file_size = ftell(fphzk);
     if (file_size + 1 > max_data_size) {
-        LOG_ERR("font file too long! %ld > %ld\n", file_size, max_data_size);
+        LOG_ERR("font file too long! %ld > %ld", file_size, max_data_size);
         return NULL;
     }
     fseek(fphzk, 0, SEEK_SET);
@@ -68,7 +67,7 @@ font_data_t* load_font(const char* filename, size_t max_data_size)
     size_t map_size = sizeof(font_data_t) + file_size + 1;
     font_data_t* map = (font_data_t*)malloc(map_size);
     if (!map) {
-        LOG_ERR("fail to malloc size(%zu) word map. \n", map_size);
+        LOG_ERR("fail to malloc size(%zu) word map. ", map_size);
         return NULL;
     }
     memset(map, 0, map_size);
@@ -76,7 +75,7 @@ font_data_t* load_font(const char* filename, size_t max_data_size)
 
     int ret = fread((char*)map->data, sizeof(char), file_size, fphzk);
     if (ret <= 0) {
-        LOG_ERR("fail to read font: %d\n", ret);
+        LOG_ERR("fail to read font: %d", ret);
         return NULL;
     }
     fclose(fphzk);
@@ -109,13 +108,13 @@ font_bitmap_t *font_bitmap_init()
 
     fb->ascii = load_font("ASC8x16", WORD_ASCII_MAX_SIZE);
     if (!fb->ascii) {
-        LOG_ERR("fail to load ascii\n");
+        LOG_ERR("fail to load ascii");
         unload_font(fb->ascii);
         return NULL;
     }
     fb->zh = load_font("hzk16x16h", WORD_ZH_MAP_MAX_SIZE);
     if (!fb->zh) {
-        LOG_ERR("fail to load zh\n");
+        LOG_ERR("fail to load zh");
         unload_font(fb->zh);
         return NULL;
     }
@@ -131,7 +130,7 @@ word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t*
 
     offset = (uint32_t)gb[0] * FONT_HEIGHT_WORD_SIZE;
     if (offset + FONT_HEIGHT_WORD_SIZE > wm->size) {
-        LOG_DBG("ascii word(%x) offset overload: offset(%d)+32 > size(%zu)\n", *gb, offset, wm->size);
+        LOG_DBG("ascii word(%x) offset overload: offset(%d)+32 > size(%zu)", *gb, offset, wm->size);
         return NULL;
     }
     p_word = (word_bitmap_t*)(wm->data + offset);
@@ -144,16 +143,12 @@ word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb
     assert(gb && wm && wm->size && "arg is null");
     int offset = 0;
     word_bitmap_t* p_word = NULL;
-#define GB2312_ZH_START (0xa0)
-#define GB2313_ZH_ZONE_FONT_CNT (94)
 
-    offset = (GB2313_ZH_ZONE_FONT_CNT * (uint32_t)(gb[0] - GB2312_ZH_START - 1) + (gb[1] - GB2312_ZH_START - 1)) * ZH_WORD_SIZE;
-    if (offset + ZH_WORD_SIZE > wm->size) {
+    offset = (94 * (unsigned int)(gb[0] - 0xa0 - 1) + (gb[1] - 0xa0 - 1)) * 32;
+    if (offset + 32 > wm->size) {
         LOG_DBG("zh word(%x, %x) offset overload: offset(%d)+32 > size(%zu)", gb[0], gb[1], offset, wm->size);
         return NULL;
     }
-#undef GB2313_ZH_ZONE_FONT_CNT
-#undef GB2312_ZH_START
     p_word = (word_bitmap_t*)(wm->data + offset);
 
     return p_word;
@@ -166,6 +161,33 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
     if (is_gb2312_chinese(gb))
         return gb2312_zh_to_word_bitmap(wm->zh, gb);
     return NULL;
+}
+
+int str_to_gb2312(const char *from_code, const char *src, char *dest, size_t *dest_size)
+{
+    // 创建 iconv 转换句柄 GB2312 <- UTF8
+    iconv_t cd = iconv_open("GB2312", from_code);
+    if (cd == (iconv_t)-1) {
+        LOG_ERR("fail to iconv gbk2312");
+        return 1;
+    }
+
+    char *p_src = (char *)src;
+    char *p_dest = dest;
+    size_t src_size = strlen(p_src) + 1;
+    if (iconv(cd, &p_src, &src_size, &p_dest, dest_size) == (size_t)-1) {
+        LOG_ERR("fail to iconv gb2312");
+        iconv_close(cd);
+        return 1;
+    }
+
+    // 关闭 iconv 转换句柄
+    iconv_close(cd);
+
+    LOG_DBG("conv %s: %s(%02x, %02x, %02x, %02x) to GB2312: %s(%02x, %02x)",
+        from_code, src, src[0], src[1], src[2], src[4], dest, dest[0], dest[1]);
+
+    return 0;
 }
 
 #ifdef __XTEST__
@@ -187,14 +209,14 @@ void display_ascii_word(word_bitmap_t* p_word)
                 printf("%s", flag ? "●" : "○");
             }
         }
-        printf("\n");
+        printf("");
     }
 
     for (int k = 0; k < 31; k++) {
         printf("0x%02X,", buffer[k]);
     }
 
-    printf("\n");
+    printf("");
 }
 
 void display_zh_word(word_bitmap_t* p_word)
@@ -211,14 +233,14 @@ void display_zh_word(word_bitmap_t* p_word)
                 printf("%s", flag ? "●" : "○");
             }
         }
-        printf("\n");
+        printf("");
     }
 
     for (int k = 0; k < 31; k++) {
         printf("0x%02X,", buffer[k]);
     }
 
-    printf("\n");
+    printf("");
 }
 
 void display_word(word_bitmap_t* p_word, gb2312_word_type_t type)
@@ -248,7 +270,7 @@ int main(void)
         gb2312_word_type_t type = get_gb2312_word_type(gb);
         word_bitmap_t* wb = gb2312_to_word_bitmap(wm, gb);
         if (!wb) {
-            LOG_ERR("fail to read gb(%hhu, %hhu)\n", gb[0], gb[1]);
+            LOG_ERR("fail to read gb(%hhu, %hhu)", gb[0], gb[1]);
             return -1;
         }
         display_word(wb, type);
