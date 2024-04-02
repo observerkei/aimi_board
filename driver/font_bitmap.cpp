@@ -169,7 +169,7 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
     return NULL;
 }
 
-int str_to_gb2312(const char* from_code, const char* src, const size_t dest_size, char* dest)
+int str_to_gb2312(const char* from_code, size_t src_size, const char* src, const size_t dest_size, char* dest)
 {
     // 创建 iconv 转换句柄 GB2312 <- UTF8
     iconv_t cd = iconv_open("GB2312", from_code);
@@ -181,7 +181,6 @@ int str_to_gb2312(const char* from_code, const char* src, const size_t dest_size
     char* p_src = (char*)src;
     char* p_dest = dest;
     size_t leat_size = dest_size;
-    size_t src_size = strlen(p_src) + 1;
     if (iconv(cd, &p_src, &src_size, &p_dest, &leat_size) == (size_t)-1) {
         LOG_ERR("fail to iconv gb2312");
         iconv_close(cd);

@@ -31,7 +31,7 @@ void framebuffer_exit(framebuffer_t* fb)
     free(fb);
 }
 
-framebuffer_t* framebuffer_init()
+framebuffer_t* framebuffer_init(const char *dev_file)
 {
     framebuffer_t* fb_info = (framebuffer_t*)malloc(sizeof(framebuffer_t));
     if (!fb_info) {
@@ -40,7 +40,7 @@ framebuffer_t* framebuffer_init()
     }
     memset(fb_info, 0, sizeof(framebuffer_t));
 
-    fb_info->dev_fb = open("/dev/fb0", O_RDWR);
+    fb_info->dev_fb = open(dev_file, O_RDWR);
     if (-1 == fb_info->dev_fb) {
         LOG_ERR("fail to open: %s", strerror(fb_info->dev_fb));
         framebuffer_exit(fb_info);
@@ -74,7 +74,7 @@ framebuffer_t* framebuffer_init()
 
 int main()
 {
-    framebuffer_t *fb = framebuffer_init();
+    framebuffer_t *fb = framebuffer_init("/dev/fb0");
     assert(fb);
     framebuffer_exit(fb);
 }

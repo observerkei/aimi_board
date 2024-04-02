@@ -52,6 +52,7 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
 /*
  * 任意编码到 GB2312 的转换.
  * @param from_code: 来源编码
+ * @param src_size: 来源字符串长度
  * @param str: 来源字符串
  * @param dest_size: 目标缓冲区空间大小
  * @param dest: 转换结果保存缓冲区
@@ -60,7 +61,7 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
  *      成功返回 使用的字符长度.
  *      
  */
-int str_to_gb2312(const char *from_code, const char *src, const size_t dest_size, char *dest);
+int str_to_gb2312(const char* from_code, size_t src_size, const char* src, const size_t dest_size, char* dest);
 
 #ifdef __cplusplus
 }

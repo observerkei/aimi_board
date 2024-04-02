@@ -25,7 +25,7 @@ typedef struct framebuffer_t {
 } framebuffer_t;
 
 void framebuffer_exit(framebuffer_t* fb);
-framebuffer_t *framebuffer_init();
+framebuffer_t *framebuffer_init(const char *dev_file);
 
 
 #ifdef __cplusplus

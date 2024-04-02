@@ -26,17 +26,15 @@
 #define DISPLAY_TABS_OF_SPACE (2)
 #define DISPLAY_SPACE_WIDTH_BIT (ASCII_WORD_SIZE)
 #define DISPLAY_SPACE_HEIGHT_BIT (FONT_HEIGHT_WORD_SIZE)
-#define ROLE_ASSISTANT_HEIGHT_START (0)
-#define ROLE_USER_HEIGHT_START (11 * FONT_HEIGHT_WORD_SIZE) // 共15行，分配 11 行给 AI
 
 typedef struct display_t {
     size_t cache_size;
+    size_t conv_gb2312_size;
     font_bitmap_t* font;
     framebuffer_t* fb_info;
     uint8_t* cache;
+    char* conv_gb2312_cache;
 } display_t;
-
-static display_t g_display = { 0 };
 
 static inline size_t view_add_x(view_t* v, size_t add)
 {
@@ -58,14 +56,14 @@ static inline size_t display_cul_cache_offset(display_t* d, size_t x, size_t y)
     return offset < (d->cache_size - COLOR_SIZE - 1) ? offset : 0;
 }
 
-static inline void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffer_color_t color)
+inline void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffer_color_t color)
 {
     *(framebuffer_color_t*)&d->cache[display_cul_cache_offset(d, x, y)] = color;
 }
 
 inline void display_fflush(display_t* d)
 {
-    memcpy(g_display.fb_info->screen, d->cache, g_display.fb_info->screen_size);
+    memcpy(d->fb_info->screen, d->cache, d->fb_info->screen_size);
 }
 
 static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size_t* y, gb2312_word_type_t type)
@@ -203,7 +201,7 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
     }
 }
 
-int display_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
+int display_view_print_gb2312(display_t* d, view_t* v, const char* str, size_t str_len)
 {
     if (!d || !str || !str_len) {
         return 0;
@@ -248,6 +246,45 @@ int display_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
     return 0;
 }
 
+static int display_extern_conv_cache(display_t *d, size_t new_size)
+{
+    assert(new_size && "new_size fail!");
+    char *new_buffer = (char *)malloc(new_size);
+    if (!new_buffer) {
+        LOG_ERR("fail to extern conv cache");
+        return -1;
+    }
+    char *old_cache = d->conv_gb2312_cache;
+    d->conv_gb2312_cache = new_buffer;
+    free(old_cache);
+
+    return 0;
+}
+
+int display_view_print(display_t* d, view_t* v, const char *from_code, const char* str, size_t str_len)
+{
+    // 如果不是GB2312编码，则进行编码转换
+    if (0 != strcasecmp("GB2312", from_code)) {
+        // 如果转换编码的缓存不够，则拓展缓存
+        if (str_len > d->conv_gb2312_size) {
+            int ret = display_extern_conv_cache(d, str_len);
+            if (ret < 0) {
+                LOG_DBG("STR TOO LONG! ");
+                return -1;
+            }
+        }
+        // 将编码转换为gb2312
+        int len = str_to_gb2312(from_code, str_len, str, d->conv_gb2312_size, d->conv_gb2312_cache);
+        if (len < 0) {
+            LOG_DBG("fail to conv %s to GB2312", from_code);
+            return -1;
+        }
+        return display_view_print_gb2312(d, v, d->conv_gb2312_cache, len);
+    }
+    return display_view_print_gb2312(d, v, str, str_len);
+}
+
+
 void view_cache_clear(display_t* d, view_t* v)
 {
     size_t start_offset = 0;
@@ -258,6 +295,107 @@ void view_cache_clear(display_t* d, view_t* v)
     v->now_x = v->start_x;
     v->now_y = v->start_y;
 }
+
+void display_exit(display_t* d)
+{
+    if (!d)
+        return;
+    
+    if (d->font) {
+        font_bitmap_exit(d->font);
+        d->font = NULL;
+    }
+    if (d->conv_gb2312_cache) {
+        free(d->conv_gb2312_cache);
+        d->conv_gb2312_cache = NULL;
+    }
+    if (d->fb_info) {
+        framebuffer_exit(d->fb_info);
+        d->fb_info = NULL;
+    }
+    if (d->cache) {
+        free(d->cache);
+        d->cache = NULL;
+        d->cache_size = 0;
+    }
+    free(d);
+}
+
+static inline void display_cache_clear(display_t* d)
+{
+    assert(d && "arg failed.");
+    memset(d->cache, COLOR_BLACK, d->cache_size);
+    display_fflush(d);
+}
+
+size_t display_get_width(display_t *d)
+{
+    if (!d)
+        return 0;
+    return d->fb_info->width;
+}
+
+size_t display_get_height(display_t *d)
+{
+    if (!d)
+        return 0;
+    return d->fb_info->height;
+}
+
+#define DEFUALT_SIZE (1024)
+
+display_t* display_init(const char *fb_dev)
+{
+    display_t *d = (display_t *)malloc(sizeof(display_t));
+    if (!d) {
+        LOG_ERR("fail to malloc display");
+        return NULL;
+    }
+    memset(d, 0, sizeof(display_t));
+
+    d->font = font_bitmap_init();
+    if (!d->font) {
+        LOG_ERR("fail to init font.");
+        goto err;
+    }
+
+    d->conv_gb2312_size = DEFUALT_SIZE;
+    d->conv_gb2312_cache = (char *)malloc(d->conv_gb2312_size);
+    if (!d->conv_gb2312_cache) {
+        goto err;
+    }
+    memset(d->conv_gb2312_cache, 0, d->conv_gb2312_size);
+
+    d->fb_info = framebuffer_init(fb_dev);
+    if (!d->fb_info) {
+        LOG_ERR("fail to init framebuffer.");
+        goto err;
+    }
+
+
+    d->cache_size = d->fb_info->screen_size;
+    d->cache = (uint8_t*)malloc(d->cache_size);
+    if (!d->cache) {
+        LOG_ERR("fail to malloc display.");
+        goto err;
+    }
+    display_cache_clear(d);
+
+    return d;
+err:
+    display_exit(d);
+    return NULL;
+}
+
+#define __DISPLAY_XTEST__
+#ifdef __DISPLAY_XTEST__
+
+#include <iostream>
+#include <string>
+#include <unistd.h>
+
+#define ROLE_ASSISTANT_HEIGHT_START (0)
+#define ROLE_USER_HEIGHT_START (11 * FONT_HEIGHT_WORD_SIZE) // 共15行，分配 11 行给 AI
 
 /*
  *
@@ -273,28 +411,19 @@ inline void assistant_view_clear(display_t* d, view_t* v)
     view_cache_clear(d, v);
 }
 
-int assistant_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
+int assistant_view_print(display_t* d, view_t* v, const char *from_code, const char* str, size_t str_len)
 {
     assert(d && v && "arg failed.");
     if (!str || !str_len) {
         return 0;
     }
     assistant_view_clear(d, v);
-    
-    static const char* ai_prefic = "AI: ";
-    char buf[128] = {0};
-    size_t buf_size = sizeof(buf);
-    int len = str_to_gb2312("UTF-8", ai_prefic, buf_size, buf);
-    if (len < 0) {
-        LOG_DBG("fail to print USER");
-        return -1;
-    }
 
-    display_view_print(d, v, buf, len);
+    size_t len = strlen("AI: ");
+    display_view_print(d, v, "UTF-8", "AI: ", len);
+    display_view_print(d, v, from_code, str, str_len);
 
-    display_view_print(d, v, str, str_len);
-
-    display_fflush(&g_display);
+    display_fflush(d);
     return 0;
 }
 
@@ -312,107 +441,24 @@ inline void user_view_clear(display_t* d, view_t* v)
     view_cache_clear(d, v);
 }
 
-int user_view_print(display_t* d, view_t* v, const char* str, size_t str_len)
+int user_view_print(display_t* d, view_t* v, const char *from_code, const char* str, size_t str_len)
 {
     assert(d && v && "arg failed.");
     if (!str || !str_len) {
         return 0;
     }
     user_view_clear(d, v);
-    static const char* user_prefic = "USER: ";
-    char buf[128] = {0};
-    size_t buf_size = sizeof(buf);
-    int len = str_to_gb2312("UTF-8", user_prefic, buf_size, buf);
-    if (len < 0) {
-        LOG_DBG("fail to print USER");
-        return -1;
-    }
 
-    display_view_print(d, v, buf, len);
-    display_view_print(d, v, str, str_len);
+    display_view_print(d, v, "UTF-8",  "USER: ", strlen( "USER: "));
+    display_view_print(d, v, from_code, str, str_len);
 
-    display_fflush(&g_display);
+    display_fflush(d);
     return 0;
 }
 
-void display_exit(display_t* d)
-{
-    if (d->font) {
-        font_bitmap_exit(d->font);
-        d->font = NULL;
-    }
-    if (d->fb_info) {
-        framebuffer_exit(d->fb_info);
-        d->fb_info = NULL;
-    }
-    if (d->cache) {
-        free(d->cache);
-        d->cache = NULL;
-        d->cache_size = 0;
-    }
-}
-
-static inline void display_cache_clear(display_t* d)
-{
-    assert(d && "arg failed.");
-    memset(g_display.cache, COLOR_BLACK, g_display.cache_size);
-    display_fflush(&g_display);
-}
-
-size_t display_get_width(display_t *d)
-{
-    if (!d)
-        return 0;
-    return d->fb_info->width;
-}
-
-size_t display_get_height(display_t *d)
-{
-    if (!d)
-        return 0;
-    return d->fb_info->height;
-}
-
-display_t* display_init()
-{
-    if (g_display.fb_info) {
-        return &g_display;
-    }
-    g_display.font = font_bitmap_init();
-    if (!g_display.font) {
-        LOG_ERR("fail to init font.");
-        return NULL;
-    }
-
-    g_display.fb_info = framebuffer_init();
-    if (!g_display.fb_info) {
-        LOG_ERR("fail to init framebuffer.");
-        display_exit(&g_display);
-        return NULL;
-    }
-
-    g_display.cache_size = g_display.fb_info->screen_size;
-    g_display.cache = (uint8_t*)malloc(g_display.cache_size);
-    if (!g_display.cache) {
-        LOG_ERR("fail to malloc display.");
-        display_exit(&g_display);
-        return NULL;
-    }
-    display_cache_clear(&g_display);
-
-    return &g_display;
-}
-
-#ifdef __DISPLAY_XTEST__
-
-#include <iostream>
-#include <string>
-#include <unistd.h>
-
 int main(void)
 {
-
-    display_t* d = display_init();
+    display_t* d = display_init("/dev/fb0");
     if (!d) {
         LOG_ERR("fail to init display.");
         return -1;
@@ -437,10 +483,6 @@ int main(void)
         .font_color = COLOR_WHITE,
     };
 
-    char buffer[1024] = {0};
-    size_t buffer_size = sizeof(buffer);
-
-    
     std::string input;
     
     // std::cout << "input test msg: \n";
@@ -453,18 +495,11 @@ int main(void)
     
     std::cout << "input user msg: \n";
     std::cin >> input;
-    std::cout << "msg len: " << input.length() << "\n";
-    
-    int len = str_to_gb2312("UTF-8", input.c_str(), buffer_size, buffer);
-    std::cout << "buffer len: " << len << "\n";
-    user_view_print(d, &uv, buffer, len);
+    user_view_print(d, &uv, "UTF-8", input.c_str(), input.length());
     
     std::cout << "input assistant msg: \n";
     std::cin >> input;
-    std::cout << "msg len: " << input.length() << "\n";
-    len = str_to_gb2312("UTF-8", input.c_str(), buffer_size, buffer);
-    std::cout << "buffer len: " << len << "\n";
-    assistant_view_print(d, &av, buffer, len);
+    assistant_view_print(d, &av, "UTF-8", input.c_str(), input.length());
 
 
     display_fflush(d);

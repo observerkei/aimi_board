@@ -32,17 +32,18 @@ typedef struct view_t {
 } view_t;
 
 void display_exit(display_t *d);
-display_t *display_init();
+display_t *display_init(const char *fb_dev);
 
 size_t display_get_width(display_t *d);
 size_t display_get_height(display_t *d);
 
 void display_fflush(display_t *d);
 
-int display_view_print(display_t* d, view_t *v, const char* str, size_t str_len);
+// 往缓存上画点的函数
+void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffer_color_t color);
 
-int assistant_view_print(display_t* d, view_t *v, const char* str, size_t str_len);
-int user_view_print(display_t* d, view_t *v, const char* str, size_t str_len);
+// 往缓存上打印的函数(支持中文)
+int display_view_print(display_t* d, view_t *v, const char *from_code, const char* str, size_t str_len);
 
 #ifdef __cplusplus
 }
