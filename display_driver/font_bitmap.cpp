@@ -278,7 +278,7 @@ int main(void)
 
     std::cout << "input len: " << input.length() << "\n";
 
-    font_bitmap_t* wm = font_bitmap_init();
+    font_bitmap_t* wm = font_bitmap_init("display_driver/font");
     if (!wm) {
         LOG_ERR("fail to init font.");
         return -1;

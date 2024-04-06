@@ -486,7 +486,7 @@ int user_view_print(display_t* d, view_t* v, const char* from_code, const char* 
 
 int main(void)
 {
-    display_t* d = display_init("/dev/fb0");
+    display_t* d = display_init("/dev/fb0", "display_driver/font");
     if (!d) {
         LOG_ERR("fail to init display.");
         return -1;
