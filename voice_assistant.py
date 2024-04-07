@@ -54,7 +54,7 @@ class VoiceAssistant:
         self.uv = UserView(width, height)
         self.av = AssistantView(width, height)
 
-        self.display.display_view_print(self.uv, "UTF-8", "USER: 1+1=?")
+        self.display.display_view_print(self.uv, "UTF-8", "USER: 1+1=? \n(Press the right button to start)")
         self.display.display_view_print(self.av, "UTF-8", "AI: 1+1=2")
         self.display.display_fflush()
 

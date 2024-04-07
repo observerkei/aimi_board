@@ -40,16 +40,12 @@ typedef struct display_t {
 
 static inline size_t view_add_x(view_t* v, size_t add)
 {
-    if (v->now_x + add > v->start_x + v->width)
-        return 0;
-    return v->now_x + add;
+    return (v->now_x + add > v->start_x + v->width) ? 0 : v->now_x + add;
 }
 
 static inline size_t view_add_y(view_t* v, size_t add)
 {
-    if (v->now_y + add > v->start_y + v->height)
-        return 0;
-    return v->now_y + add;
+    return (v->now_y + add > v->start_y + v->height) ? 0 : v->now_y + add;
 }
 
 void display_set_debug(char enable)
@@ -65,11 +61,15 @@ static inline size_t display_cul_cache_offset(display_t* d, size_t x, size_t y)
 
 inline void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffer_color_t color)
 {
+    if (!d)
+        return;
     *(framebuffer_color_t*)&d->cache[display_cul_cache_offset(d, x, y)] = color;
 }
 
 inline void display_fflush(display_t* d)
 {
+    if (!d)
+        return;
     memcpy(d->fb_info->screen, d->cache, d->fb_info->screen_size);
 }
 
@@ -82,7 +82,7 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
     size_t real_width = v->start_x + v->width >= d->fb_info->width
         ? d->fb_info->width
         : v->start_x + v->width;
-    
+
     assert(real_width && "width fail!");
 
     // LOG_DBG("nx(%zu), ny(%zu), real_width(%zu), v->start_x: %zu, v->width: %zu, d->fb_info->width: %zu",
@@ -151,7 +151,7 @@ static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_
     assert(d && v && wb && "arg failed!");
 
     const uint8_t* buffer = (const uint8_t*)wb->ascii;
-    static unsigned char key[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+    static unsigned char key[BIT_SIZE] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
     size_t next_x = v->now_x;
     size_t next_y = v->now_y;
     int success = 0;
@@ -186,7 +186,7 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
     assert(d && v && wb && "arg failed!");
 
     const uint8_t* buffer = (const uint8_t*)wb->zh;
-    static unsigned char key[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
+    static unsigned char key[BIT_SIZE] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
     size_t next_x = v->now_x;
     size_t next_y = v->now_y;
     int success = 0;
@@ -286,7 +286,7 @@ static int display_extern_conv_cache(display_t* d, size_t new_size)
     return 0;
 }
 
-static void display_show_view_info(view_t* v)
+static inline void display_show_view_info(view_t* v)
 {
     LOG_DBG("  start_x: %zu, start_y: %zu, width: %zu, height: %zu, "
             "now_x: %zu, now_y: %zu, start_x: %zu, start_y: %zu, font_color: %hu",
@@ -296,6 +296,11 @@ static void display_show_view_info(view_t* v)
 
 int display_view_print(display_t* d, view_t* v, const char* from_code, const char* str, size_t str_len)
 {
+    if (!d || !v || !from_code || !str || !str_len) {
+        LOG_DBG("arg failed: d(%p) v(%p) from_code(%p) str(%p) str_len(%zu) ",
+            d, v, from_code, str, str_len);
+        return -1;
+    }
     LOG_DBG("display(%p) try print.", d);
     display_show_view_info(v);
     // 如果不是GB2312编码，则进行编码转换
@@ -321,6 +326,9 @@ int display_view_print(display_t* d, view_t* v, const char* from_code, const cha
 
 void display_view_clear(display_t* d, view_t* v)
 {
+    if (!d || !v)
+        return;
+
     size_t start_offset = 0;
     size_t real_width = v->start_x + v->width >= d->fb_info->width
         ? d->fb_info->width
@@ -331,7 +339,7 @@ void display_view_clear(display_t* d, view_t* v)
 
     for (size_t y = v->start_y; y < real_height; ++y) {
         start_offset = display_cul_cache_offset(d, v->start_x, y);
-        memset(d->cache + start_offset, COLOR_BLACK, real_width*COLOR_SIZE);
+        memset(d->cache + start_offset, COLOR_BLACK, real_width * COLOR_SIZE);
     }
     v->now_x = v->start_x;
     v->now_y = v->start_y;
@@ -387,7 +395,7 @@ size_t display_get_height(display_t* d)
 
 #define DEFUALT_SIZE (1024)
 
-display_t* display_init(const char* fb_dev, const char *font_path)
+display_t* display_init(const char* fb_dev, const char* font_path)
 {
     display_t* d = (display_t*)malloc(sizeof(display_t));
     if (!d) {

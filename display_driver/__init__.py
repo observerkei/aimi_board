@@ -6,6 +6,9 @@ class Color:
     Black: int = c_uint16(0x0000)
     While: int = c_uint16(0xFFFF)
     Grey: int = c_uint16(0xE73C)
+    Yellow: int = c_uint16(0xf7ce)
+    Green: int = c_uint16(0x07c0)
+    Blue: int = c_uint16(0x001e)
 
     def create(color: int):
         return c_uint16(color)
