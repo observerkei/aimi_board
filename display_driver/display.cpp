@@ -167,9 +167,9 @@ static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_
 
             int flag = buffer[k * 1] & key[i];
             display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
-            if (flag)
-                LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
-                    v->font_color, next_x, next_y, d);
+            // if (flag)
+            //     LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
+            //         v->font_color, next_x, next_y, d);
             success = 1;
         }
         if (success)
@@ -203,9 +203,9 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
                 }
                 int flag = buffer[k * 2 + j] & key[i];
                 display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
-                if (flag)
-                    LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
-                        v->font_color, next_x, next_y, d);
+                // if (flag)
+                //     LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
+                //         v->font_color, next_x, next_y, d);
                 success = 1;
             }
         }
@@ -233,17 +233,25 @@ static int display_view_print_gb2312(display_t* d, view_t* v, const char* str, s
         case GB2312_ASCII:
             switch (*gb) {
             case '\n':
+                LOG_DBG("try draw: `\\n`");
                 display_draw_tabs_word(d, v);
                 break;
             case '\t':
+                LOG_DBG("try draw: `\\t`");
                 display_draw_endl_word(d, v);
                 break;
-            default:
+            case ' ':
+                LOG_DBG("try draw: ` `");
+                display_draw_space_word(d, v);
                 break;
-            }
-            if (isgraph(*gb)) {
-                LOG_DBG("try draw ascii: %c", str[i]);
-                display_draw_ascii_word(d, v, wb);
+            default:
+                if (isgraph(*gb)) {
+                    LOG_DBG("try draw ascii: %c", str[i]);
+                    display_draw_ascii_word(d, v, wb);
+                } else {
+                    LOG_DBG("unknow ch: %02x", str[i]);
+                }
+                break;
             }
 
             i += GB2312_ASCII_BIT;
@@ -314,9 +322,16 @@ int display_view_print(display_t* d, view_t* v, const char* from_code, const cha
 void display_view_clear(display_t* d, view_t* v)
 {
     size_t start_offset = 0;
-    for (size_t i = v->start_y; i < v->height; ++i) {
-        start_offset = display_cul_cache_offset(d, v->start_x, i);
-        memset(d->cache + start_offset, COLOR_BLACK, v->width);
+    size_t real_width = v->start_x + v->width >= d->fb_info->width
+        ? d->fb_info->width
+        : v->start_x + v->width;
+    size_t real_height = v->start_y + v->height >= d->fb_info->height
+        ? d->fb_info->height
+        : v->start_y + v->height;
+
+    for (size_t y = v->start_y; y < real_height; ++y) {
+        start_offset = display_cul_cache_offset(d, v->start_x, y);
+        memset(d->cache + start_offset, COLOR_BLACK, real_width*COLOR_SIZE);
     }
     v->now_x = v->start_x;
     v->now_y = v->start_y;
@@ -408,7 +423,7 @@ display_t* display_init(const char* fb_dev, const char *font_path)
     }
     display_cache_clear(d);
 
-    LOG_DBG("display(%p) create success.", d);
+    LOG_DBG("display(%p:%zu) create success.", d, d->cache_size);
 
     return d;
 err:
@@ -521,15 +536,19 @@ int main(void)
     // sleep(3);
     // display_view_clear(d, &av);
 
-    std::cout << "input user msg: \n";
-    std::cin >> input;
-    user_view_print(d, &uv, "UTF-8", input.c_str(), input.length());
+    while (true) {
+        display_view_clear(d, &uv);
+        std::cout << "input user msg: \n";
+        std::cin >> input;
+        user_view_print(d, &uv, "UTF-8", input.c_str(), input.length());
 
-    std::cout << "input assistant msg: \n";
-    std::cin >> input;
-    assistant_view_print(d, &av, "UTF-8", input.c_str(), input.length());
+        display_view_clear(d, &av);
+        std::cout << "input assistant msg: \n";
+        std::cin >> input;
+        assistant_view_print(d, &av, "UTF-8", input.c_str(), input.length());
 
-    display_fflush(d);
+        display_fflush(d);
+    }
 
     display_exit(d);
 

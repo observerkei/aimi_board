@@ -22,6 +22,8 @@ fi
 default_speak_mode=zh-CN-XiaoxiaoNeural
 speak_file=/tmp/audio.mp3
 
+rm -f ${speak_file}
+
 edge-tts --text $1 --write-media ${speak_file}  -v ${default_speak_mode}
 # 如果添加 usermod 后, 则需要重启设备才能不加 sudo 使用
 if [[ use_sudo -eq 0 ]]; then

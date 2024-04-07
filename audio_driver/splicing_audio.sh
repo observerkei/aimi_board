@@ -7,4 +7,5 @@ if [[ ! $? -eq 0 ]]; then
 fi
 
 OUTFILE=/tmp/record/record.wav
-sox -m $@  ${OUTFILE}
+rm -f ${OUTFILE}
+sox $@ ${OUTFILE}

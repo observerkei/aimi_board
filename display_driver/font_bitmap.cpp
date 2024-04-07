@@ -21,7 +21,7 @@ typedef struct font_data_t {
 
 int is_gb2312_chinese(const uint8_t* gb)
 {
-    if (gb[0] >= 0xB0 && gb[0] <= 0xF7 && gb[1] >= 0xA1 && gb[1] <= 0xFE) {
+    if (gb[0] >= 0xA1 && gb[0] <= 0xFE && gb[1] >= 0xA1 && gb[1] <= 0xFE) {
         return 1;
     }
     return 0;

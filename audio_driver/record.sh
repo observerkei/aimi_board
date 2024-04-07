@@ -1,15 +1,18 @@
 #!/bin/bash
 
 DEVICE="hw:0,0"
-DURATION=5
-OUTPUT_DIR="/tmp/record/"
+DURATION=3
+
+OUTPUT_DIR="/tmp/record"
+if [[ -d "${OUTPUT_DIR}" ]]; then
+    mkdir -p ${OUTPUT_DIR}
+fi
 
 FILENAME=$1
 if [[ -z "${FILENAME}" ]]; then
-    FILENAME=record
+    FILENAME=${OUTPUT_DIR}/record.wav
 fi
 
-mkdir -p ${OUTPUT_DIR}
 echo "start record"
-sudo arecord -D $DEVICE -f cd -c 1 -r 44100 -d $DURATION $OUTPUT_DIR/${FILENAME}.wav
-echo "create $OUTPUT_DIR/${FILENAME}.wav"
+arecord -D $DEVICE -f cd -c 1 -r 44100 -d $DURATION ${FILENAME}
+echo "create ${FILENAME}"
