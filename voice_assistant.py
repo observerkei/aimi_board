@@ -35,7 +35,7 @@ class UserView(View):
 
 
 class VoiceAssistant:
-    preset: str = "你是个AI助手, 请尽可能简短的回复. "
+    preset: str = "你是个AI助手, 请尽可能简短的回复. 如我问: `你好`, 你回答: `我很好, 你呢?` "
 
     def __init__(self):
         self.__display_init()

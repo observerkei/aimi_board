@@ -113,6 +113,14 @@ class OpenAIAPI:
             )
             yield from self.web_ask(link_think, conversation_id, timeout)
         else:
+            if len(preset) and not len(context_messages):
+                question = self.make_link_think(
+                    question=question,
+                    aimi_name=aimi_name,
+                    nickname=nickname,
+                    preset=preset,
+                    history=history,
+                )
             yield from self.api_ask(
                 question=question,
                 model=model,

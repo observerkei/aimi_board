@@ -21,10 +21,13 @@ fi
 
 default_speak_mode=zh-CN-XiaoxiaoNeural
 speak_file=/tmp/audio.mp3
+speak_txt=/tmp/speak.txt
 
-rm -f ${speak_file}
+rm -f ${speak_file} ${speak_txt}
 
-edge-tts --text $1 --write-media ${speak_file}  -v ${default_speak_mode}
+echo "$1" > ${speak_txt}
+
+edge-tts -f ${speak_txt} --write-media ${speak_file}  -v ${default_speak_mode}
 # 如果添加 usermod 后, 则需要重启设备才能不加 sudo 使用
 if [[ use_sudo -eq 0 ]]; then
     mplayer ${speak_file}
