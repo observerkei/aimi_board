@@ -38,12 +38,14 @@ def record(filename: str):
 
 
 def splicing_audio(files: list[str]):
-    cmd = ["/bin/bash", f"{_audio_driver_prefix}/record.sh"]
+    cmd = ["/bin/bash", f"{_audio_driver_prefix}/splicing_audio.sh"]
     cmd.extend(files)
     r = run_cmd(cmd)
     ret = make_ret(r)
 
     if ret.returncode == 0:
+        print(f"splicing_audio: {ret.stdout}")
         return "/tmp/record/record.wav"
     
+    print(f"splicing_audio err: {ret.stderr}")
     return ""

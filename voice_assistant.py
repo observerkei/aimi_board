@@ -35,7 +35,8 @@ class UserView(View):
 
 
 class VoiceAssistant:
-    
+    preset: str = "你是个AI助手, 请尽可能简短的回复. "
+
     def __init__(self):
         self.__display_init()
         self.__buttun_init()
@@ -81,7 +82,11 @@ class VoiceAssistant:
                 self.display.display_fflush()
 
                 filename = f"/tmp/record/{len(audio_records)}.wav"
-                record(filename)
+                ret = record(filename)
+                if ret.returncode != 0:
+                    log_dbg(f"record: {ret.stderr}")
+                else:
+                    log_dbg(f"record err: {ret.stderr}")
                 audio_records.append(filename)
 
             elif len(audio_records) and not self.button.is_key_pressed(ButtonType.KEY_RIGHT):
@@ -110,7 +115,7 @@ class VoiceAssistant:
 
                 chunk = ""
                 prev_text = ""
-                for res in self.bot.ask(chat):
+                for res in self.bot.ask(question=chat, preset=self.preset):
                     if res["message"] == -1:
                         continue
                     log_dbg(f"res: {prev_text}")
@@ -122,8 +127,11 @@ class VoiceAssistant:
                     prev_text = res["message"]
 
                 if len(prev_text):
-                    chat_to_speak(prev_text)
-                    prev_text = ""
+                    ret = chat_to_speak(prev_text)
+                    if ret.returncode == 0:
+                        log_dbg(f"speak: {ret.stdout}")
+                    else:
+                        log_dbg(f"speak err: {ret.stderr}")
             else:
                 time.sleep(0.1)
 

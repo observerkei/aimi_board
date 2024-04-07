@@ -13,6 +13,8 @@ if [[ -z "${FILENAME}" ]]; then
     FILENAME=${OUTPUT_DIR}/record.wav
 fi
 
+rm -f ${FILENAME}
+
 echo "start record"
 arecord -D $DEVICE -f cd -c 1 -r 44100 -d $DURATION ${FILENAME}
 echo "create ${FILENAME}"
