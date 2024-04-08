@@ -5,12 +5,12 @@ if [[ ! $? -eq 0 ]]; then
 	sudo apt-get install -y mplayer
     sudo usermod -a -G audio `whoami`
     sudo usermod -a -G video `whoami`
-    touch /tmp/audio_no_restart
+    touch /tmp/driver_no_restart
     echo "add user to audio and video mod, need restart. "
 fi
 
 use_sudo=0
-if [[ -f "/tmp/audio_no_restart" ]]; then
+if [[ -f "/tmp/driver_no_restart" ]]; then
     use_sudo=1
 fi
 
