@@ -234,11 +234,11 @@ static int display_view_print_gb2312(display_t* d, view_t* v, const char* str, s
             switch (*gb) {
             case '\n':
                 LOG_DBG("try draw: `\\n`");
-                display_draw_tabs_word(d, v);
+                display_draw_endl_word(d, v);
                 break;
             case '\t':
                 LOG_DBG("try draw: `\\t`");
-                display_draw_endl_word(d, v);
+                display_draw_tabs_word(d, v);
                 break;
             case ' ':
                 LOG_DBG("try draw: ` `");

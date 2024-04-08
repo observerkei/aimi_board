@@ -1,10 +1,5 @@
 #!/bin/bash
 
-which edge-tts > /dev/null
-if [ ! $? -eq 0 ]; then
-	pip3 install edge-tts
-fi
-
 which mplayer > /dev/null
 if [[ ! $? -eq 0 ]]; then
 	sudo apt-get install -y mplayer
@@ -19,15 +14,11 @@ if [[ -f "/tmp/audio_no_restart" ]]; then
     use_sudo=1
 fi
 
-default_speak_mode=zh-CN-XiaoxiaoNeural
 speak_file=/tmp/audio.mp3
-speak_txt=/tmp/speak.txt
+if [[ ! -z "$1" ]]; then
+    speak_file=$1
+fi
 
-rm -f ${speak_file} ${speak_txt}
-
-echo "$1" > ${speak_txt}
-
-edge-tts -f ${speak_txt} --write-media ${speak_file}  -v ${default_speak_mode}
 # 如果添加 usermod 后, 则需要重启设备才能不加 sudo 使用
 if [[ use_sudo -eq 0 ]]; then
     mplayer ${speak_file}

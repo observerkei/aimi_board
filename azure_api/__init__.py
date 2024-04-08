@@ -26,7 +26,8 @@ def voice_recognition(filename: str, lang="zh-cn"):
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             log_dbg("Error details: {}".format(cancellation_details.error_details))
             log_dbg("Did you set the speech resource key and region values?")
-    return "Error"
+    log_dbg("unknow option. ")
+    return speech_recognition_result.text
 
 
 if __name__ == '__main__':

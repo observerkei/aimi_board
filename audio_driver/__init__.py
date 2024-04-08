@@ -27,25 +27,37 @@ def run_cmd(cmd: list[str]):
     )
 
 
+def chat_to_audio(chat: str, audio: str):
+    r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/chat_to_audio.sh", audio, chat])
+    return make_ret(r)
+
+
+def audio_to_speak(audio: str):
+    r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/audio_to_speak.sh", audio])
+    return make_ret(r)
+
+
 def chat_to_speak(chat: str):
-    r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/chat_to_speak.sh", chat])
+    rc = chat_to_audio(chat, "/tmp/audio.mp3")
+    ra = audio_to_speak("/tmp/audio.mp3")
+
+    rc.returncode += ra.returncode
+    rc.stdout = f"{rc.stdout}\n{ra.stdout}"
+    rc.stderr = f"{rc.stderr}\n{ra.stderr}"
+    return rc
+
+
+def record(device: str, filename: str):
+    r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/record.sh", device, filename])
     return make_ret(r)
 
 
-def record(filename: str):
-    r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/record.sh", filename])
-    return make_ret(r)
+def splicing_audio(files: list[str], outfile: str):
+    run_cmd(["rm", "-f ", outfile])
 
-
-def splicing_audio(files: list[str]):
     cmd = ["/bin/bash", f"{_audio_driver_prefix}/splicing_audio.sh"]
     cmd.extend(files)
-    r = run_cmd(cmd)
-    ret = make_ret(r)
+    cmd.append(outfile)
 
-    if ret.returncode == 0:
-        print(f"splicing_audio: {ret.stdout}")
-        return "/tmp/record/record.wav"
-    
-    print(f"splicing_audio err: {ret.stderr}")
-    return ""
+    r = run_cmd(cmd)
+    return make_ret(r)
