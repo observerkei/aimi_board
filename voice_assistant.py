@@ -47,7 +47,7 @@ class VoiceAssistant:
         self.bot = OpenAIAPI()
 
     def __record_init(self):
-        self.recoed_device = "hw:0,0"
+        self.record_device = "hw:0,0"
 
     def __display_init(self):
         self.display = Display("./display_driver/display.so", "/dev/fb0", "./display_driver/font/")
@@ -58,7 +58,7 @@ class VoiceAssistant:
         self.uv = UserView(width, height)
         self.av = AssistantView(width, height)
 
-        self.display.display_view_print(self.uv, "UTF-8", "USER: 1+1=? \n(Press Right-button to start)")
+        self.display.display_view_print(self.uv, "UTF-8", "USER: 1+1=? \n")
         self.display.display_view_print(self.av, "UTF-8", "AI: 1+1=2")
         self.display.display_fflush()
 
@@ -76,12 +76,12 @@ class VoiceAssistant:
         
         ret = chat_to_audio(chat, "/tmp/audio.mp3")
         if ret.returncode != 0:
-            log_dbg(f"speak err: {ret.stderr}")
+            log_dbg(f"create audio err: {ret.stdout}\n{ret.stderr}")
             self.display.display_view_clear(self.av)
             self.display.display_view_print(self.av, "UTF-8", f"AI: {chat}\n(speak err...)")
             self.display.display_fflush()
             return
-        
+        log_dbg(f"create audio: {ret.stdout}")
         
         self.display.display_view_clear(self.av)
         self.display.display_view_print(self.av, "UTF-8", f"AI: {chat}\n(try to speak...)")
@@ -89,7 +89,7 @@ class VoiceAssistant:
         
         ret = audio_to_speak("/tmp/audio.mp3")
         if ret.returncode != 0:
-            log_dbg(f"speak err: {ret.stderr}")
+            log_dbg(f"speak err: {ret.stdout}\n{ret.stderr}")
             self.display.display_view_clear(self.av)
             self.display.display_view_print(self.av, "UTF-8", f"AI: {chat}\n(speak err...)")
             self.display.display_fflush()
@@ -109,9 +109,10 @@ class VoiceAssistant:
         save_record = "/tmp/record/recoed.wav"
         ret = splicing_audio(audio_records, save_record)
         if ret.returncode != 0:
-            log_dbg(f"splicing_audio: {ret.stderr}")
-        else:
-            log_dbg(f"splicing_audio err: {ret.stderr}")
+            log_dbg(f"splicing_audio err: {ret.stdout}\n{ret.stderr}")
+            return False, "(splicing audio Error..)"
+    
+        log_dbg(f"splicing_audio: {ret.stdout}")
 
         self.display.display_view_clear(self.uv)
         self.display.display_view_print(self.uv, "UTF-8", f"USER: (voice recognition...)")
@@ -122,7 +123,7 @@ class VoiceAssistant:
         self.display.display_view_print(self.uv, "UTF-8", f"USER: {chat}")
         self.display.display_fflush()
 
-        return chat
+        return True, chat
     
     def recording_voice(self, idx: int):
         log_dbg(f"record..")
@@ -135,9 +136,9 @@ class VoiceAssistant:
         self.display.display_fflush()
 
         filename = f"/tmp/record/{idx}.wav"
-        ret = record(self.recoed_device, filename)
+        ret = record(self.record_device, filename)
         if ret.returncode != 0:
-            log_dbg(f"record err: {ret.stderr}")
+            log_dbg(f"record err: {ret.stdout}\n{ret.stderr}")
             return None
         else:
             log_dbg(f"record: {ret.stdout}")
@@ -148,6 +149,9 @@ class VoiceAssistant:
         audio_records = []
 
         log_dbg("start listen. ")
+        
+        self.display.display_view_print(self.uv, "UTF-8", "(Press Right-button to start)")
+        self.display.display_fflush()
 
         while True:
             if self.button.is_key_pressed(ButtonType.KEY_RIGHT):
@@ -157,7 +161,11 @@ class VoiceAssistant:
                 audio_records.append(filename)
 
             elif len(audio_records) and not self.button.is_key_pressed(ButtonType.KEY_RIGHT):
-                chat = self.voices_to_chat(audio_records)
+                status, chat = self.voices_to_chat(audio_records)
+                if not status:
+                    log_dbg(f"fail to trans chat: {chat}")
+                    continue
+
                 audio_records = []
                 log_dbg(f"voice_recognition: {chat}")
 

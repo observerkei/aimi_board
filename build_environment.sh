@@ -4,7 +4,7 @@ sudo apt-get install -y python3 python3-pip sox
 
 which mplayer > /dev/null
 if [[ ! $? -eq 0 ]]; then
-	sudo apt-get install -y mplayer
+    sudo apt-get install -y mplayer
     sudo usermod -a -G audio `whoami`
     sudo usermod -a -G video `whoami`
     sudo usermod -a -G input `whoami`
