@@ -69,7 +69,14 @@ class VoiceAssistant:
         buttun_thread.setDaemon(True)  # 将线程设置为守护线程
         buttun_thread.start()  # 启动按键监听线程
     
-    def speak_chat(self, chat):
+    def speak_chat(self, chat: str):
+        """
+        将文本转换为语音并播放出来。
+
+        Args:
+            chat (str): 要转换并播放的文本内容。
+        """
+        
         self.display.display_view_clear(self.av)
         self.display.display_view_print(self.av, "UTF-8", f"AI: {chat}\n(conceive a sound...)")
         self.display.display_fflush()
@@ -100,7 +107,18 @@ class VoiceAssistant:
         self.display.display_view_print(self.av, "UTF-8", f"AI: {chat}")
         self.display.display_fflush()
 
-    def voices_to_chat(self, audio_records):
+    def voices_to_chat(self, audio_records: list[str]):
+        """
+        将多个语音记录转换为文本。
+
+        Args:
+            audio_records (list[str]): 多个语音记录的文件路径列表。
+
+        Returns:
+            bool: 成功状态
+            str: 转换后的文本内容。
+        """
+
         log_dbg(f"splicing audio..")
         self.display.display_view_clear(self.uv)
         self.display.display_view_print(self.uv, "UTF-8", f"USER: (splicing audio...)")
@@ -126,6 +144,16 @@ class VoiceAssistant:
         return True, chat
     
     def recording_voice(self, idx: int):
+        """
+        录制语音并保存到文件。
+
+        Args:
+            idx (int): 语音记录的编号。
+
+        Return:
+            str: 文件名称含路径
+        """
+
         log_dbg(f"record..")
         
         Listening = "Listening"

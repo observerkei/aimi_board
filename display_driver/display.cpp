@@ -249,7 +249,7 @@ static int display_view_print_gb2312(display_t* d, view_t* v, const char* str, s
                     LOG_DBG("try draw ascii: %c", str[i]);
                     display_draw_ascii_word(d, v, wb);
                 } else {
-                    LOG_DBG("unknow ch: %02x", str[i]);
+                    LOG_DBG("unknow ch: 0x%02x", str[i]);
                 }
                 break;
             }

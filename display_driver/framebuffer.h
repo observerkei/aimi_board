@@ -16,15 +16,27 @@ typedef uint16_t framebuffer_color_t;
 #define COLOR_GREY (0xe73cU)
 
 typedef struct framebuffer_t {
-    size_t screen_size;
-    size_t width;
-    size_t height;
-    int dev_fb;
-    struct fb_var_screeninfo vinfo;
-    void* screen;
+    size_t screen_size;              // 屏幕占用内存大小
+    size_t width;                    // 屏幕宽度
+    size_t height;                   // 屏幕高度
+    int dev_fb;                      // 屏幕设备描述符
+    struct fb_var_screeninfo vinfo;  // 屏幕信息
+    void* screen;                    // 屏幕内存
 } framebuffer_t;
 
+/**
+ * 释放帧缓冲区所占用的内存空间。
+ *
+ * @param fb 指向帧缓冲区的指针。
+ */
 void framebuffer_exit(framebuffer_t* fb);
+
+/**
+ * 初始化帧缓冲区。
+ *
+ * @param dev_file 帧缓冲设备文件的路径。
+ * @return 指向初始化后的帧缓冲区的指针。
+ */
 framebuffer_t *framebuffer_init(const char *dev_file);
 
 

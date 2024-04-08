@@ -5,6 +5,17 @@ import azure.cognitiveservices.speech as speechsdk
 log_dbg = print
 
 def voice_recognition(filename: str, lang="zh-cn"):
+    """
+    语音文件转文本
+
+    Args:
+        filename (str): 要转换的音频文件
+        lang (str): 文件语言
+    
+    Return:
+        (str): 输出转换完成文本
+    """
+
     # This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
     speech_config = speechsdk.SpeechConfig(subscription=os.environ.get('SPEECH_KEY'), region=os.environ.get('SPEECH_REGION'))
     speech_config.speech_recognition_language=lang

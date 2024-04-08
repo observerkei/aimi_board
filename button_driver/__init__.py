@@ -20,6 +20,10 @@ class Button:
 
     # 开始监听按键事件
     def server(self):
+        """
+        按键监听服务器
+        """
+
         try:
             self.device = evdev.InputDevice(self.device_path)
             self.running = True
@@ -49,6 +53,16 @@ class Button:
 
     # 返回按键是否按下的检测结果
     def is_key_pressed(self, keycode):
+        """
+        返回按键是否按下的检测结果
+
+        Args:
+            keycode (str): 要检测的按键名称
+        
+        Return:
+             (bool): 按键是否按下, 按下 True 未按下 False
+        """
+
         return keycode in self.key_pressed_times
 
 # 示例用法

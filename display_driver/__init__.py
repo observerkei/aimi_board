@@ -14,17 +14,32 @@ class Color:
         return c_uint16(color)
 
 
+# 
+#     @ Display
+#     @ 原点点定义: 0点为屏幕正方的左上角
+#     @ 方向定义
+#  
+#         |<--width-->
+#     —— 0+----------> x++
+#     ^   |
+#     |   |
+#  height |
+#     |   |
+#     v   v
+#         y++
+# 
 #
 # Structure link: https://docs.python.org/3/library/ctypes.html
 # typedef struct view_t {
-#     const size_t start_x;
-#     const size_t start_y;
-#     const size_t width;
-#     const size_t height;
-#     size_t now_x;
-#     size_t now_y;
-#     framebuffer_color_t font_color;
+#     const size_t start_x;            // 视图开始x位置
+#     const size_t start_y;            // 视图开始y位置
+#     const size_t width;              // 视图宽
+#     const size_t height;             // 视图高
+#     size_t now_x;                    // 当前绘制x位置
+#     size_t now_y;                    // 当前绘制y位置
+#     framebuffer_color_t font_color;  // 绘制颜色
 # } view_t;
+
 class View(Structure):
     start_x: int
     start_y: int
@@ -99,24 +114,74 @@ class Display:
         self.display_so.display_view_print.restype = c_int
 
     def display_fflush(self):
+        """
+        刷新显示设备的内容。
+        """
+
         self.display_so.display_fflush(self.display_driver)
 
     def display_view_clear(self, v: View):
+        """
+        清空指定视图的内容。
+
+        Args:
+            v (View): 要清空内容的视图对象。
+        """
+
         self.display_so.display_view_clear(self.display_driver, v)
 
     def display_set_debug(self, enable: int):
+        """
+        设置调试模式。
+
+        Args:
+            enable (int): 是否启用调试模式, 1 为启用, 0 为禁用。
+        """
+
         self.display_driver.display_set_debug(enable)
 
     def display_get_width(self):
+        """
+        获取显示设备的宽度。
+
+        Returns:
+            int: 显示设备的宽度。
+        """
+
         return self.display_so.display_get_width(self.display_driver)
 
     def display_get_height(self):
+        """
+        获取显示设备的高度。
+
+        Returns:
+            int: 显示设备的高度。
+        """
+
         return self.display_so.display_get_height(self.display_driver)
 
     def display_set_cache_color(self, x: int, y: int, color: int):
+        """
+        在缓存上设置指定位置的颜色。
+
+        Args:
+            x (int): 指定位置的横坐标。
+            y (int): 指定位置的纵坐标。
+            color (int): 要设置的颜色。
+        """
+
         self.display_so.display_set_cache_color(self.display_driver, x, y, color)
 
     def display_view_print(self, v: View, from_code: str, content: str):
+        """
+        在指定视图上打印字符串。
+
+        Args:
+            v (View): 要打印字符串的视图对象。
+            from_code (str): 字符串的编码格式。
+            content (str): 要打印的字符串内容。
+        """
+
         return self.display_so.display_view_print(
             self.display_driver,
             v,

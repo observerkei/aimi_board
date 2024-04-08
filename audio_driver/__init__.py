@@ -28,16 +28,38 @@ def run_cmd(cmd: list[str]):
 
 
 def chat_to_audio(chat: str, audio: str):
+    """
+    将聊天内容转换为音频文件。
+
+    Args:
+        chat (str): 要转换的聊天内容。
+        audio (str): 输出的音频文件路径。
+    """
+    
     r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/chat_to_audio.sh", audio, chat])
     return make_ret(r)
 
 
 def audio_to_speak(audio: str):
+    """
+    将音频文件播放出来。
+
+    Args:
+        audio (str): 要播放的音频文件路径。
+    """
+
     r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/audio_to_speak.sh", audio])
     return make_ret(r)
 
 
 def chat_to_speak(chat: str):
+    """
+    将聊天内容直接转换为语音播放。
+
+    Args:
+        chat (str): 要转换并播放的聊天内容。
+    """
+
     rc = chat_to_audio(chat, "/tmp/audio.mp3")
     ra = audio_to_speak("/tmp/audio.mp3")
 
@@ -48,11 +70,27 @@ def chat_to_speak(chat: str):
 
 
 def record(device: str, filename: str):
+    """
+    录制音频到指定文件。
+
+    Args:
+        device (str): 音频设备名称或ID。
+        filename (str): 输出的音频文件路径。
+    """
+
     r = run_cmd(["/bin/bash", f"{_audio_driver_prefix}/record.sh", device, filename])
     return make_ret(r)
 
 
 def splicing_audio(files: list[str], outfile: str):
+    """
+    拼接多个音频文件成一个音频文件。
+
+    Args:
+        files (list[str]): 要拼接的音频文件列表。
+        outfile (str): 输出的音频文件路径。
+    """
+    
     run_cmd(["rm", "-f ", outfile])
 
     cmd = ["/bin/bash", f"{_audio_driver_prefix}/splicing_audio.sh"]
