@@ -19,6 +19,8 @@ export SPEECH_REGION=your-azure-key-region
 
 2. **Configuring the Runtime Environment**
 
+Prepare a device, such as `MaixII-Sense`, or any device containing a microphone, speakers, display (with framebuffer driver support), and buttons (partial inclusion is also acceptable).
+
 ```bash
 sudo bash -x build_environment.sh
 ```
