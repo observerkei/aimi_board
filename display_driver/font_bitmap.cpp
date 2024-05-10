@@ -184,10 +184,10 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
 
 int str_to_gb2312(const char* from_code, size_t src_size, const char* src, const size_t dest_size, char* dest)
 {
-    // 创建 iconv 转换句柄 GB2312 <- UTF8
+    // 创建 iconv 转换句柄 GB2312 <- from_code
     iconv_t cd = iconv_open("GB2312", from_code);
     if (cd == (iconv_t)-1) {
-        LOG_ERR("fail to iconv gbk2312");
+        LOG_ERR("fail to iconv open gb2312");
         return -1;
     }
 

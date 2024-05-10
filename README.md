@@ -38,3 +38,10 @@ or
 ```bash
 sudo python3 voice_assistant.py
 ```
+
+
+### Doc
+
+[Deploy and build documentation](https://blog.observerkei.top/WB/Develop/Embedded/Voice-Assistant/%E9%83%A8%E7%BD%B2%E5%92%8C%E6%9E%84%E5%BB%BA)
+
+
