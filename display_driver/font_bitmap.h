@@ -16,10 +16,10 @@ extern "C" {
 #define GB2312_ASCII_BIT (sizeof(uint8_t)) // ASCII 单字占用字节数
 
 struct font_data_t;
-#define BIT_SIZE (8) // 位大小
+#define BIT_SIZE (8)                                  // 位大小
 #define ZH_WORD_SIZE (GB2312_ZH_BIT * BIT_SIZE)       // 16 * FRAMEBUFFER==2 中文字体 BIT 大小
 #define ASCII_WORD_SIZE (GB2312_ASCII_BIT * BIT_SIZE) // ASCII 字体 BIT 大小
-#define FONT_HEIGHT_WORD_SIZE (16) // 字体高度
+#define FONT_HEIGHT_WORD_SIZE (16)                    // 字体高度
 
 typedef union {
     uint8_t zh[ZH_WORD_SIZE];        // width-16bit, height-16bit

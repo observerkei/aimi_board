@@ -11,14 +11,20 @@
 #include "debug.h"
 #include "font_bitmap.h"
 
-#define WORD_ASCII_MAX_SIZE (5 * 1024LU)
-#define WORD_ZH_MAP_MAX_SIZE (257 * 1024LU)
+#define WORD_ASCII_MAX_SIZE (5 * 1024LU)     // ASCII 字体最大大小
+#define WORD_ZH_MAP_MAX_SIZE (257 * 1024LU)  // 中文字体 最大大小
 
 typedef struct font_data_t {
-    size_t size;
-    uint8_t data[0];
+    size_t size;     // 字体数据大小
+    uint8_t data[0]; // 字体数据
 } font_data_t;
 
+/**
+ * 判断是否为 GB2312 编码的中文字符。
+ *
+ * @param gb 指向 GB2312 编码的字符的指针。
+ * @return 如果是中文字符则返回 1，否则返回 0。
+ */
 int is_gb2312_chinese(const uint8_t* gb)
 {
     if (gb[0] >= 0xA1 && gb[0] <= 0xFE && gb[1] >= 0xA1 && gb[1] <= 0xFE) {
@@ -27,6 +33,12 @@ int is_gb2312_chinese(const uint8_t* gb)
     return 0;
 }
 
+/**
+ * 判断是否为 GB2312 编码的 ASCII 字符。
+ *
+ * @param gb 指向 GB2312 编码的字符的指针。
+ * @return 如果是 ASCII 字符则返回 1，否则返回 0。
+ */
 int is_gb2312_ascii(const uint8_t* gb)
 {
     if (gb[0] < 0x80)
@@ -34,6 +46,12 @@ int is_gb2312_ascii(const uint8_t* gb)
     return 0;
 }
 
+/**
+ * 获取 GB2312 编码字符的类型。
+ *
+ * @param gb 指向 GB2312 编码的字符的指针。
+ * @return GB2312 编码字符的类型。
+ */
 gb2312_word_type_t get_gb2312_word_type(const uint8_t* gb)
 {
     if (is_gb2312_ascii(gb))
@@ -50,6 +68,14 @@ void unload_font(font_data_t* map)
     free(map);
 }
 
+/**
+ * 加载字体文件
+ *
+ * @param filename 字体文件路径
+ * @param max_data_size 字体文件的最大大小
+ * 
+ * @return 成功返回 非NULL 失败返回 NULL
+ */
 font_data_t* load_font(const char* filename, size_t max_data_size)
 {
     FILE* fphzk = NULL;
@@ -85,6 +111,11 @@ font_data_t* load_font(const char* filename, size_t max_data_size)
     return map;
 }
 
+/**
+ * 释放字体位图所占用的内存空间。
+ *
+ * @param map 指向字体位图的指针。
+ */
 void font_bitmap_exit(font_bitmap_t* fb)
 {
     if (!fb)
@@ -99,6 +130,12 @@ void font_bitmap_exit(font_bitmap_t* fb)
     }
 }
 
+/**
+ * 初始化字体位图。
+ *
+ * @param font_path 字体文件的路径。
+ * @return 指向初始化后的字体位图的指针。
+ */
 font_bitmap_t* font_bitmap_init(const char *font_path)
 {
     assert(font_path && "font path fail!");
@@ -135,6 +172,13 @@ err:
     return NULL;
 }
 
+/**
+ * 使用特定字体将 GB2312 编码的 ASCII 字符转换为字位图。
+ *
+ * @param wm 指向字体数据的指针。
+ * @param gb 指向 GB2312 编码的 ASCII 字符的指针。
+ * @return 指向生成的字位图的指针。
+ */
 word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t* gb)
 {
     assert(gb && wm && wm->size && "arg is null");
@@ -151,6 +195,13 @@ word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t*
     return p_word;
 }
 
+/**
+ * 使用特定字体将 GB2312 编码的中文字符转换为字位图。
+ *
+ * @param wm 指向字体数据的指针。
+ * @param gb 指向 GB2312 编码的字符的指针。
+ * @return 指向生成的字位图的指针。
+ */
 word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb)
 {
     assert(gb && wm && wm->size && "arg is null");
@@ -173,6 +224,13 @@ word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb
     return p_word;
 }
 
+/**
+ * 使用特定字体将 GB2312 编码的字符转换为字位图。
+ *
+ * @param wm 指向字体位图数据的指针。
+ * @param gb 指向 GB2312 编码的字符的指针。
+ * @return 指向生成的字位图的指针。
+ */
 word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
 {
     if (is_gb2312_ascii(gb))
@@ -182,6 +240,18 @@ word_bitmap_t* gb2312_to_word_bitmap(const font_bitmap_t* wm, const uint8_t* gb)
     return NULL;
 }
 
+/*
+ * 任意编码到 GB2312 的转换.
+ * @param from_code: 来源编码
+ * @param src_size: 来源字符串长度
+ * @param str: 来源字符串
+ * @param dest_size: 目标缓冲区空间大小
+ * @param dest: 转换结果保存缓冲区
+ * @return:
+ *      失败返回 < 0
+ *      成功返回 使用的字符长度.
+ *
+ */
 int str_to_gb2312(const char* from_code, size_t src_size, const char* src, const size_t dest_size, char* dest)
 {
     // 创建 iconv 转换句柄 GB2312 <- from_code

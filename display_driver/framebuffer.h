@@ -8,12 +8,12 @@ extern "C" {
 #include <stdint.h>
 #include <linux/fb.h>
 
-typedef uint16_t framebuffer_color_t;
-#define COLOR_SIZE (sizeof(framebuffer_color_t))
+typedef uint16_t framebuffer_color_t;             // 颜色类型
+#define COLOR_SIZE (sizeof(framebuffer_color_t))  // 颜色类型大小
 
-#define COLOR_BLACK (0x0000U)
-#define COLOR_WHITE (0xffffU)
-#define COLOR_GREY (0xe73cU)
+#define COLOR_BLACK (0x0000U)   // 黑色
+#define COLOR_WHITE (0xffffU)   // 白色
+#define COLOR_GREY (0xe73cU)    // 灰色
 
 typedef struct framebuffer_t {
     size_t screen_size;              // 屏幕占用内存大小

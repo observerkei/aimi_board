@@ -30,35 +30,78 @@
 char g_dbg_enable = 1;
 
 typedef struct display_t {
-    size_t cache_size;
-    size_t conv_gb2312_size;
-    font_bitmap_t* font;
-    framebuffer_t* fb_info;
-    uint8_t* cache;
-    char* conv_gb2312_cache;
+    size_t cache_size;       // 显示缓存大小
+    size_t conv_gb2312_size; // 字体转码缓存大小
+    font_bitmap_t* font;     // 字体内存
+    framebuffer_t* fb_info;  // fb内存
+    uint8_t* cache;          // 显示缓存地址
+    char* conv_gb2312_cache; // 字体转码缓存地址
 } display_t;
 
+/**
+ * @brief 增加视图的 x 坐标值。
+ *
+ * 这个函数通过给定的增量值 `add` 来调整视图 `v` 的 x 坐标。
+ *
+ * @param v 指向要修改的视图的指针。
+ * @param add 要增加的 x 坐标值。
+ * @return 返回修改后的 x 坐标值。
+ */
 static inline size_t view_add_x(view_t* v, size_t add)
 {
     return (v->now_x + add > v->start_x + v->width) ? 0 : v->now_x + add;
 }
 
+/**
+ * @brief 增加视图的 Y 坐标值
+ *
+ * 此函数根据给定的增量值 `add` 修改视图 `v` 的 Y 坐标。
+ * 
+ * @param v 指向视图的指针，表示要修改的视图。
+ * @param add 要增加的 Y 坐标值。
+ * @return 修改后的 Y 坐标值。
+ */
 static inline size_t view_add_y(view_t* v, size_t add)
 {
     return (v->now_y + add > v->start_y + v->height) ? 0 : v->now_y + add;
 }
 
+/**
+ * @brief 设置调试模式
+ *
+ * 该函数用于启用或禁用显示模块的调试模式。
+ *
+ * @param enable 如果为非零值，则启用调试模式；如果为零，则禁用调试模式。
+ */
 void display_set_debug(char enable)
 {
     g_dbg_enable = enable;
 }
 
+/**
+ * @brief 计算并返回在显示缓存中给定坐标 (x, y) 的偏移量。
+ *
+ * @param d 指向 display_t 结构体的指针，该结构体包含显示缓存的信息。
+ * @param x 指定的 x 坐标，用于计算偏移量。
+ * @param y 指定的 y 坐标，用于计算偏移量。
+ * @return 返回指定坐标 (x, y) 在显示缓存中的偏移量，单位为字节。
+ */
 static inline size_t display_cul_cache_offset(display_t* d, size_t x, size_t y)
 {
     size_t offset = (y * d->fb_info->width + x) * COLOR_SIZE;
     return offset < (d->cache_size - COLOR_SIZE - 1) ? offset : 0;
 }
 
+/**
+ * @brief 设置显示缓存中指定位置的颜色
+ *
+ * 此函数用于在显示缓存中设置指定坐标 (x, y) 的颜色。
+ * 
+ * @param d 指向显示结构体的指针，包含显示设备的相关信息。
+ * @param x 指定的 x 坐标，表示需要设置颜色的位置。
+ * @param y 指定的 y 坐标，表示需要设置颜色的位置。
+ * @param color 要设置的颜色
+ */
 inline void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffer_color_t color)
 {
     if (!d)
@@ -66,6 +109,13 @@ inline void display_set_cache_color(display_t* d, size_t x, size_t y, framebuffe
     *(framebuffer_color_t*)&d->cache[display_cul_cache_offset(d, x, y)] = color;
 }
 
+/**
+ * @brief 刷新显示缓冲区
+ *
+ * 此函数用于刷新指定显示设备的缓冲区，确保所有待显示的内容立即输出到显示屏。
+ *
+ * @param d 指向 display_t 结构的指针，表示要刷新的显示设备。
+ */
 inline void display_fflush(display_t* d)
 {
     if (!d)
@@ -73,6 +123,17 @@ inline void display_fflush(display_t* d)
     memcpy(d->fb_info->screen, d->cache, d->fb_info->screen_size);
 }
 
+/**
+ * @brief 根据输入的字符类型，计算下一个绘制开始位置
+ *
+ * @param d 指向 display_t 类型的指针，表示显示设备的相关信息。
+ * @param v 指向 view_t 类型的指针，表示当前视图的信息。
+ * @param x 指向 size_t 类型的指针，表示当前行的起始 x 坐标。
+ * @param y 指向 size_t 类型的指针，表示当前行的起始 y 坐标。
+ * @param type gb2312_word_type_t 类型的枚举值，表示要显示的字符类型（例如，中文字符、英文字符等）。
+ *
+ * @return 返回值为 int 类型，通常用于指示函数执行的状态。 0 正常， 非0 异常
+ */
 static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size_t* y, gb2312_word_type_t type)
 {
     size_t next_x = *x;
@@ -113,6 +174,12 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
     return 0;
 }
 
+/**
+ * @brief 绘制空格
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ */
 static void display_draw_space_word(display_t* d, view_t* v)
 {
     size_t next_x = view_add_x(v, ASCII_WORD_SIZE);
@@ -126,12 +193,24 @@ static void display_draw_space_word(display_t* d, view_t* v)
     v->now_y = next_y;
 }
 
+/**
+ * @brief 绘制TAB制表符
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ */
 static inline void display_draw_tabs_word(display_t* d, view_t* v)
 {
     for (size_t i = 0; i < DISPLAY_TABS_OF_SPACE; ++i)
         display_draw_space_word(d, v);
 }
 
+/**
+ * @brief 绘制换行
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ */
 static inline void display_draw_endl_word(display_t* d, view_t* v)
 {
     size_t next_x = 0;
@@ -146,6 +225,13 @@ static inline void display_draw_endl_word(display_t* d, view_t* v)
     v->now_y = next_y;
 }
 
+/**
+ * @brief 绘制ASCII字符
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ * @param wb ASCII字体位图
+ */
 static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_t* wb)
 {
     assert(d && v && wb && "arg failed!");
@@ -181,6 +267,13 @@ static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_
     }
 }
 
+/**
+ * @brief 绘制GB2312中文字符
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ * @param wb GB2312中文字体位图
+ */
 static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* wb)
 {
     assert(d && v && wb && "arg failed!");
@@ -218,6 +311,17 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
     }
 }
 
+
+/**
+ * @brief 往显示上打印 GB2312中文 + ASCII字符串
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ * @param str 被打印的GB2312中文字符串
+ * @param str_len 被打印的GB2312中文字符串长度
+ * 
+ * @return 成功返回 0 失败返回 非0
+ */
 static int display_view_print_gb2312(display_t* d, view_t* v, const char* str, size_t str_len)
 {
     if (!d || !str || !str_len) {
@@ -271,6 +375,14 @@ static int display_view_print_gb2312(display_t* d, view_t* v, const char* str, s
     return 0;
 }
 
+/**
+ * @brief 拓展字体缓存
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param new_size 新拓展内存大小
+ * 
+ * @return 成功返回 0 失败返回 非0
+ */
 static int display_extern_conv_cache(display_t* d, size_t new_size)
 {
     assert(new_size && "new_size fail!");
@@ -286,6 +398,11 @@ static int display_extern_conv_cache(display_t* d, size_t new_size)
     return 0;
 }
 
+/**
+ * @brief 显示视图信息
+ *
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ */
 static inline void display_show_view_info(view_t* v)
 {
     LOG_DBG("  start_x: %zu, start_y: %zu, width: %zu, height: %zu, "
@@ -294,6 +411,17 @@ static inline void display_show_view_info(view_t* v)
         v->now_y, v->start_x, v->start_y, v->font_color);
 }
 
+/**
+ * @brief 往显示上打印文字(支持中文)
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ * @param from_code 字符编码
+ * @param str 被打印的字符
+ * @param str_len 被打印的字符长度
+ * 
+ * @return 成功返回 0 失败返回 非0
+ */
 int display_view_print(display_t* d, view_t* v, const char* from_code, const char* str, size_t str_len)
 {
     if (!d || !v || !from_code || !str || !str_len) {
@@ -324,6 +452,12 @@ int display_view_print(display_t* d, view_t* v, const char* from_code, const cha
     return display_view_print_gb2312(d, v, str, str_len);
 }
 
+/**
+ * @brief 清空视图
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ * @param v 指向 view_t 结构的指针，表示当前视图的设置和参数。
+ */
 void display_view_clear(display_t* d, view_t* v)
 {
     if (!d || !v)
@@ -345,6 +479,11 @@ void display_view_clear(display_t* d, view_t* v)
     v->now_y = v->start_y;
 }
 
+/**
+ * @brief 清理显示资源
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ */
 void display_exit(display_t* d)
 {
     if (!d)
@@ -372,6 +511,11 @@ void display_exit(display_t* d)
     free(d);
 }
 
+/**
+ * @brief 清理显示缓存
+ *
+ * @param d 指向 display_t 结构的指针，表示当前显示的状态和属性。
+ */
 static inline void display_cache_clear(display_t* d)
 {
     assert(d && "arg failed.");
@@ -379,6 +523,11 @@ static inline void display_cache_clear(display_t* d)
     display_fflush(d);
 }
 
+/**
+ * @brief 获取显示宽度
+ *
+ * @return 显示宽度
+ */
 size_t display_get_width(display_t* d)
 {
     if (!d)
@@ -386,6 +535,11 @@ size_t display_get_width(display_t* d)
     return d->fb_info->width;
 }
 
+/**
+ * @brief 获取显示高度
+ *
+ * @return 显示高度
+ */
 size_t display_get_height(display_t* d)
 {
     if (!d)
@@ -393,8 +547,16 @@ size_t display_get_height(display_t* d)
     return d->fb_info->height;
 }
 
-#define DEFUALT_SIZE (1024)
+#define DEFUALT_SIZE (1024)  // 默认字体转码缓存大小
 
+/**
+ * @brief 初始化显示
+ * 
+ * @param fb_dev fb设备
+ * @param font_path 字体路径
+ *
+ * @return 成功返回 非NULL 失败返回 NULL
+ */
 display_t* display_init(const char* fb_dev, const char* font_path)
 {
     display_t* d = (display_t*)malloc(sizeof(display_t));

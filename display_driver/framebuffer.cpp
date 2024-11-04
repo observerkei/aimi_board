@@ -14,6 +14,11 @@
 #include "debug.h"
 #include "framebuffer.h"
 
+/**
+ * 释放帧缓冲区所占用的内存空间。
+ *
+ * @param fb 指向帧缓冲区的指针。
+ */
 void framebuffer_exit(framebuffer_t* fb)
 {
     if (!fb)
@@ -31,6 +36,12 @@ void framebuffer_exit(framebuffer_t* fb)
     free(fb);
 }
 
+/**
+ * 初始化帧缓冲区。
+ *
+ * @param dev_file 帧缓冲设备文件的路径。
+ * @return 指向初始化后的帧缓冲区的指针。
+ */
 framebuffer_t* framebuffer_init(const char *dev_file)
 {
     framebuffer_t* fb_info = (framebuffer_t*)malloc(sizeof(framebuffer_t));
