@@ -27,7 +27,8 @@ typedef struct font_data_t {
  */
 int is_gb2312_chinese(const uint8_t* gb)
 {
-    if (gb[0] >= 0xA1 && gb[0] <= 0xFE && gb[1] >= 0xA1 && gb[1] <= 0xFE) {
+    if (gb[0] >= 0xA1 && gb[0] <= 0xFE
+        && gb[1] >= 0xA1 && gb[1] <= 0xFE) {
         return 1;
     }
     return 0;
@@ -187,7 +188,8 @@ word_bitmap_t* gb2312_ascii_to_word_bitmap(const font_data_t* wm, const uint8_t*
 
     offset = (uint32_t)gb[0] * FONT_HEIGHT_WORD_SIZE;
     if (offset + FONT_HEIGHT_WORD_SIZE > wm->size) {
-        LOG_DBG("ascii word(%x) offset overload: offset(%d)+32 > size(%zu)", *gb, offset, wm->size);
+        LOG_DBG("ascii word(%x) offset overload: offset(%d)+32 > size(%zu)", 
+            *gb, offset, wm->size);
         return NULL;
     }
     p_word = (word_bitmap_t*)(wm->data + offset);
@@ -211,12 +213,16 @@ word_bitmap_t* gb2312_zh_to_word_bitmap(const font_data_t* wm, const uint8_t* gb
 #define GB2312_ZH_START (0xa0)
 #define FONT_ZH_BITMAP_SIZE (32)
 #define GB2312_ZONE_CODE_ZH_SIZE (94)
-    offset = (GB2312_ZONE_CODE_ZH_SIZE * (uint32_t)(gb[0] - GB2312_ZH_START - 1) + (gb[1] - GB2312_ZH_START - 1)) * FONT_ZH_BITMAP_SIZE;
+
+    offset = (GB2312_ZONE_CODE_ZH_SIZE * (uint32_t)(gb[0] - GB2312_ZH_START - 1) 
+        + (gb[1] - GB2312_ZH_START - 1)) * FONT_ZH_BITMAP_SIZE;
     if (offset + FONT_ZH_BITMAP_SIZE > wm->size) {
-        LOG_DBG("zh word(%x, %x) offset overload: offset(%d)+32 > size(%zu)", gb[0], gb[1], offset, wm->size);
+        LOG_DBG("zh word(%x, %x) offset overload: offset(%d)+32 > size(%zu)", 
+            gb[0], gb[1], offset, wm->size);
         return NULL;
     }
     p_word = (word_bitmap_t*)(wm->data + offset);
+
 #undef GB2312_ZONE_CODE_ZH_SIZE
 #undef FONT_ZH_BITMAP_SIZE
 #undef GB2312_ZH_START
@@ -273,8 +279,10 @@ int str_to_gb2312(const char* from_code, size_t src_size, const char* src, const
     // 关闭 iconv 转换句柄
     iconv_close(cd);
 
-    // LOG_DBG("conv %s: %s(%02x, %02x, %02x, %02x) to GB2312: %s(%02x, %02x)",
-    //     from_code, src, src[0], src[1], src[2], src[4], dest, dest[0], dest[1]);
+#if DETAIL_LOG_ENABLE
+    LOG_DBG("conv %s: %s(%02x, %02x, %02x, %02x) to GB2312: %s(%02x, %02x)",
+        from_code, src, src[0], src[1], src[2], src[4], dest, dest[0], dest[1]);
+#endif // DETAIL_LOG_ENABLE
 
     return dest_size - leat_size;
 }

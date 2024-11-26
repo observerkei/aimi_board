@@ -66,11 +66,12 @@ framebuffer_t* framebuffer_init(const char *dev_file)
     }
     fb_info->width = fb_info->vinfo.xres_virtual;
     fb_info->height = fb_info->vinfo.yres_virtual;
-    //VIEW_RGB565_SIZE == COLOR_SIZE
+
     fb_info->screen_size = fb_info->width * fb_info->height * COLOR_SIZE;
     LOG_DBG("Width: %ld, Heigh: %ld", fb_info->width, fb_info->height);
 
-    fb_info->screen = mmap(NULL, fb_info->screen_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb_info->dev_fb, 0);
+    fb_info->screen = mmap(NULL, fb_info->screen_size,
+        PROT_READ | PROT_WRITE, MAP_SHARED, fb_info->dev_fb, 0);
     if (MAP_FAILED == fb_info->screen) {
         perror("fail to get mmap");
         framebuffer_exit(fb_info);

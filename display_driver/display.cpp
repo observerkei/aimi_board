@@ -146,8 +146,11 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
 
     assert(real_width && "width fail!");
 
-    // LOG_DBG("nx(%zu), ny(%zu), real_width(%zu), v->start_x: %zu, v->width: %zu, d->fb_info->width: %zu",
-    //     next_x, next_y, real_width, v->start_x, v->width, d->fb_info->width);
+#if DETAIL_LOG_ENABLE
+    LOG_DBG("nx(%zu), ny(%zu), real_width(%zu), v->start_x: %zu, "
+        "v->width: %zu, d->fb_info->width: %zu",
+        next_x, next_y, real_width, v->start_x, v->width, d->fb_info->width);
+#endif // DETAIL_LOG_ENABLE
 
     if (next_x >= real_width || next_x + space >= real_width) {
         next_y += FONT_HEIGHT_WORD_SIZE;
@@ -161,8 +164,11 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
 
     assert(real_height && "height fail!");
 
-    // LOG_DBG("nx(%zu), ny(%zu), real_height(%zu), v->start_y: %zu, v->height: %zu, d->fb_info->height: %zu",
-    //     next_x, next_y, real_height, v->start_y, v->height, d->fb_info->height);
+#if DETAIL_LOG_ENABLE
+    LOG_DBG("nx(%zu), ny(%zu), real_height(%zu), v->start_y: %zu, "
+        "v->height: %zu, d->fb_info->height: %zu",
+        next_x, next_y, real_height, v->start_y, v->height, d->fb_info->height);
+#endif // DETAIL_LOG_ENABLE
 
     if (next_y >= real_height) {
         next_y = v->start_y;
@@ -253,9 +259,13 @@ static inline void display_draw_ascii_word(display_t* d, view_t* v, word_bitmap_
 
             int flag = buffer[k * 1] & key[i];
             display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
-            // if (flag)
-            //     LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
-            //         v->font_color, next_x, next_y, d);
+
+#if DETAIL_LOG_ENABLE
+            if (flag)
+                LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
+                    v->font_color, next_x, next_y, d);
+#endif // DETAIL_LOG_ENABLE
+
             success = 1;
         }
         if (success)
@@ -288,7 +298,8 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
         for (int j = 0; j < GB2312_ZH_BIT; ++j) {
             success = 0;
             for (int i = 0; i < BIT_SIZE; ++i, next_x += 1) {
-                gb2312_word_type_t break_line = (j == 0 ? GB2312_CHINESE : GB2312_ASCII); // 第二边界有可能又越界
+                // 第二边界有可能又越界
+                gb2312_word_type_t break_line = (j == 0 ? GB2312_CHINESE : GB2312_ASCII);
                 int ret = display_cul_next_line(d, v, &next_x, &next_y, break_line);
                 if (ret < 0) {
                     LOG_ERR("fail to draw zh nx(%zu) ny(%zu) next line.", next_x, next_y);
@@ -296,9 +307,13 @@ static inline void display_draw_zh_word(display_t* d, view_t* v, word_bitmap_t* 
                 }
                 int flag = buffer[k * 2 + j] & key[i];
                 display_set_cache_color(d, next_x, next_y, flag ? v->font_color : COLOR_BLACK);
-                // if (flag)
-                //     LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
-                //         v->font_color, next_x, next_y, d);
+
+#if DETAIL_LOG_ENABLE
+                if (flag)
+                    LOG_DBG("set %04x in (%zu, %zu) of display(%p) done",
+                        v->font_color, next_x, next_y, d);
+#endif // DETAIL_LOG_ENABLE
+
                 success = 1;
             }
         }
@@ -442,7 +457,8 @@ int display_view_print(display_t* d, view_t* v, const char* from_code, const cha
             }
         }
         // 将编码转换为gb2312
-        int len = str_to_gb2312(from_code, str_len, str, d->conv_gb2312_size, d->conv_gb2312_cache);
+        int len = str_to_gb2312(from_code, str_len, str, 
+            d->conv_gb2312_size, d->conv_gb2312_cache);
         if (len < 0) {
             LOG_DBG("fail to conv %s to GB2312", from_code);
             return -1;
@@ -697,14 +713,6 @@ int main(void)
     };
 
     std::string input;
-
-    // std::cout << "input test msg: \n";
-    // std::cin >> input;
-    // std::cout << "msg len: " << input.length() << "\n";
-
-    // display_view_print(d, &av, input.c_str(), input.length());
-    // sleep(3);
-    // display_view_clear(d, &av);
 
     while (true) {
         display_view_clear(d, &uv);
