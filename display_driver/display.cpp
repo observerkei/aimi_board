@@ -49,7 +49,7 @@ typedef struct display_t {
  */
 static inline size_t view_add_x(view_t* v, size_t add)
 {
-    return (v->now_x + add > v->start_x + v->width) ? 0 : v->now_x + add;
+    return (v->now_x + add) > (v->start_x + v->width) ? 0 : v->now_x + add;
 }
 
 /**
@@ -63,7 +63,7 @@ static inline size_t view_add_x(view_t* v, size_t add)
  */
 static inline size_t view_add_y(view_t* v, size_t add)
 {
-    return (v->now_y + add > v->start_y + v->height) ? 0 : v->now_y + add;
+    return (v->now_y + add) > (v->start_y + v->height) ? 0 : v->now_y + add;
 }
 
 /**
@@ -140,9 +140,8 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
     size_t next_y = *y;
     size_t space = (type == GB2312_CHINESE ? ZH_WORD_SIZE : ASCII_WORD_SIZE);
 
-    size_t real_width = v->start_x + v->width >= d->fb_info->width
-        ? d->fb_info->width
-        : v->start_x + v->width;
+    size_t real_width = (v->start_x + v->width) >= d->fb_info->width ? 
+        d->fb_info->width : v->start_x + v->width;
 
     assert(real_width && "width fail!");
 
@@ -158,9 +157,8 @@ static inline int display_cul_next_line(display_t* d, view_t* v, size_t* x, size
         display_cul_next_line(d, v, &next_x, &next_y, type);
     }
 
-    size_t real_height = v->start_y + v->height >= d->fb_info->height
-        ? d->fb_info->height
-        : v->start_y + v->height;
+    size_t real_height = (v->start_y + v->height) >= d->fb_info->height ? 
+        d->fb_info->height : v->start_y + v->height;
 
     assert(real_height && "height fail!");
 
@@ -480,12 +478,10 @@ void display_view_clear(display_t* d, view_t* v)
         return;
 
     size_t start_offset = 0;
-    size_t real_width = v->start_x + v->width >= d->fb_info->width
-        ? d->fb_info->width
-        : v->start_x + v->width;
-    size_t real_height = v->start_y + v->height >= d->fb_info->height
-        ? d->fb_info->height
-        : v->start_y + v->height;
+    size_t real_width = (v->start_x + v->width) >= d->fb_info->width ? 
+        d->fb_info->width : v->start_x + v->width;
+    size_t real_height = (v->start_y + v->height) >= d->fb_info->height ? 
+        d->fb_info->height : v->start_y + v->height;
 
     for (size_t y = v->start_y; y < real_height; ++y) {
         start_offset = display_cul_cache_offset(d, v->start_x, y);
@@ -693,7 +689,7 @@ int main(void)
         return -1;
     }
 
-    view_t av = {
+    view_t av = (view_t) {
         .start_x = 0,
         .start_y = 0,
         .width = display_get_width(d),
@@ -702,7 +698,7 @@ int main(void)
         .now_y = 0,
         .font_color = COLOR_WHITE
     };
-    view_t uv = {
+    view_t uv = (view_t) {
         .start_x = 0,
         .start_y = ROLE_USER_HEIGHT_START,
         .width = display_get_width(d),
